@@ -17,11 +17,12 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "esp_system.h"
 #include "driver/spi_master.h"
 #include "soc/gpio_struct.h"
 #include "driver/gpio.h"
-#include "esp_heap_alloc_caps.h"
+#include "esp_heap_caps.h"
 
 #include "sdkconfig.h"
 
@@ -130,7 +131,7 @@ void ili_cmd(spi_device_handle_t spi, const uint8_t cmd)
 }
 
 //Send data to the ILI9341. Uses spi_device_transmit, which waits until the transfer is complete.
-void ili_data(spi_device_handle_t spi, const uint8_t *data, int len) 
+void ili_data(spi_device_handle_t spi, const uint8_t *data, int len)
 {
     esp_err_t ret;
     spi_transaction_t t;
@@ -162,9 +163,9 @@ void ili_init(spi_device_handle_t spi)
 
     //Reset the display
     gpio_set_level(PIN_NUM_RST, 0);
-    vTaskDelay(100 / portTICK_RATE_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     gpio_set_level(PIN_NUM_RST, 1);
-    vTaskDelay(100 / portTICK_RATE_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
 
     //Send all the commands
     while (ili_init_cmds[cmd].databytes!=0xff) {
@@ -174,7 +175,7 @@ void ili_init(spi_device_handle_t spi)
         memcpy(dmdata, ili_init_cmds[cmd].data, 16);
         ili_data(spi, dmdata, ili_init_cmds[cmd].databytes&0x1F);
         if (ili_init_cmds[cmd].databytes&0x80) {
-            vTaskDelay(100 / portTICK_RATE_MS);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
         }
         cmd++;
     }
@@ -292,17 +293,17 @@ void IRAM_ATTR displayTask(void *arg) {
 	printf("*** Display task starting.\n");
 
     //Initialize the SPI bus
-    ret=spi_bus_initialize(HSPI_HOST, &buscfg, 1);
+    ret=spi_bus_initialize(SPI3_HOST, &buscfg, 1);
     assert(ret==ESP_OK);
     //Attach the LCD to the SPI bus
-    ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);
+    ret=spi_bus_add_device(SPI3_HOST, &devcfg, &spi);
     assert(ret==ESP_OK);
     //Initialize the LCD
     ili_init(spi);
 
 	//We're going to do a fair few transfers in parallel. Set them all up.
 	for (x=0; x<NO_SIM_TRANS; x++) {
-		dmamem[x]=pvPortMallocCaps(MEM_PER_TRANS*2, MALLOC_CAP_DMA);
+		dmamem[x]=heap_caps_malloc(MEM_PER_TRANS*2, MALLOC_CAP_DMA);
 		assert(dmamem[x]);
 		memset(&trans[x], 0, sizeof(spi_transaction_t));
 		trans[x].length=MEM_PER_TRANS*2;
@@ -365,7 +366,7 @@ void IRAM_ATTR displayTask(void *arg) {
 #include    <xtensa/config/core.h>
 #include    <xtensa/corebits.h>
 #include    <xtensa/config/system.h>
-#include    <xtensa/simcall.h>
+//#include    <xtensa/simcall.h>
 
 void spi_lcd_wait_finish() {
 #ifndef DOUBLE_BUFFER
@@ -388,7 +389,7 @@ void spi_lcd_init() {
     dispSem=xSemaphoreCreateBinary();
     dispDoneSem=xSemaphoreCreateBinary();
 #ifdef DOUBLE_BUFFER
-	currFbPtr=pvPortMallocCaps(320*240, MALLOC_CAP_32BIT);
+	currFbPtr=heap_caps_malloc(320*240, MALLOC_CAP_32BIT);
 #endif
 #if CONFIG_FREERTOS_UNICORE
 	xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, NULL, 0);

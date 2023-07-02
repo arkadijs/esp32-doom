@@ -20,6 +20,7 @@
 
 
 #include "driver/gpio.h"
+#include "rom/gpio.h"
 #include "soc/gpio_struct.h"
 #include "psxcontroller.h"
 

@@ -29,36 +29,35 @@
 #include "freertos/task.h"
 #include <stdlib.h>
 #include "esp_err.h"
-#include "nvs_flash.h"
+#include "esp_log.h"
 #include "esp_partition.h"
 
 #undef false
 #undef true
 #include "i_system.h"
 
-#include "spi_lcd.h"
+#include "i80_lcd.h"
 
-
-extern void jsInit();
-
+#define TAG "app_main"
 
 void doomEngineTask(void *pvParameters)
 {
+//    char const *argv[]={"doom","-warp","1", NULL};
     char const *argv[]={"doom","-cout","ICWEFDA", NULL};
     doom_main(3, argv);
 }
 
+const void *wad_ptr;
+
 void app_main()
 {
-	int i;
-	const esp_partition_t* part;
-	spi_flash_mmap_handle_t hdoomwad;
-	esp_err_t err;
+    const esp_partition_t* wad = esp_partition_find_first(66, 6, NULL);
+    assert(wad);
 
-	part=esp_partition_find_first(66, 6, NULL);
-	if (part==0) printf("Couldn't find wad part!\n");
+    esp_partition_mmap_handle_t handle;
+    ESP_ERROR_CHECK(esp_partition_mmap(wad, 0, 4*1024*1014, ESP_PARTITION_MMAP_DATA, &wad_ptr, &handle));
+    ESP_LOGI(TAG, "WAD@%p", wad_ptr);
 
-	spi_lcd_init();
-	jsInit();
-	xTaskCreatePinnedToCore(&doomEngineTask, "doomEngine", 22480, NULL, 5, NULL, 0);
+    i80_lcd_init();
+    xTaskCreatePinnedToCore(&doomEngineTask, "doomEngine", 22480, NULL, 5, NULL, 0);
 }

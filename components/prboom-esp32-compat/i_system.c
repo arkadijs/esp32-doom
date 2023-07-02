@@ -73,7 +73,7 @@
 #include "freertos/task.h"
 
 #include "esp_partition.h"
-#include "esp_spi_flash.h"
+#include "spi_flash_mmap.h"
 
 #ifdef __GNUG__
 #pragma implementation "i_system.h"
@@ -258,7 +258,12 @@ static void freeUnusedMmaps() {
 	}
 }
 
+extern void *wad_ptr;
+
 void *I_Mmap(void *addr, size_t length, int prot, int flags, int ifd, off_t offset) {
+    return (byte*)wad_ptr + offset;
+/*
+
 	int i;
 	esp_err_t err;
 	void *retaddr=NULL;
@@ -272,7 +277,7 @@ void *I_Mmap(void *addr, size_t length, int prot, int flags, int ifd, off_t offs
 
 	i=getFreeHandle();
 
-	//lprintf(LO_INFO, "I_Mmap: mmaping offset %d size %d handle %d\n", (int)offset, (int)length, i);
+    lprintf(LO_INFO, "I_Mmap: mmaping offset %d size %d handle %d\n", (int)offset, (int)length, i);
 	err=esp_partition_mmap(fds[ifd].part, offset, length, SPI_FLASH_MMAP_DATA, (const void**)&retaddr, &mmapHandle[i].handle);
 	if (err==ESP_ERR_NO_MEM) {
 		lprintf(LO_ERROR, "I_Mmap: No free address space. Cleaning up unused cached mmaps...\n");
@@ -290,10 +295,12 @@ void *I_Mmap(void *addr, size_t length, int prot, int flags, int ifd, off_t offs
 	}
 
 	return retaddr;
+*/
 }
 
 
 int I_Munmap(void *addr, size_t length) {
+/*
 	int i;
 	for (i=0; i<NO_MMAP_HANDLES; i++) {
 		if (mmapHandle[i].addr==addr && mmapHandle[i].len==length) break;
@@ -304,14 +311,15 @@ int I_Munmap(void *addr, size_t length) {
 	}
 //	lprintf(LO_INFO, "I_Mmap: freeing handle %d\n", i);
 	mmapHandle[i].used--;
-	return 0;
+*/
+    return 0;
 }
 
 void I_Read(int ifd, void* vbuf, size_t sz)
 {
-	uint8_t *d=I_Mmap(NULL, sz, 0, 0, ifd, fds[ifd].offset);
-	memcpy(vbuf, d, sz);
-	I_Munmap(d, sz);
+    //uint8_t *d=I_Mmap(NULL, sz, 0, 0, ifd, fds[ifd].offset);
+    memcpy(vbuf, (byte*)wad_ptr + fds[ifd].offset, sz);
+    //I_Munmap(d, sz);
 }
 
 const char *I_DoomExeDir(void)
