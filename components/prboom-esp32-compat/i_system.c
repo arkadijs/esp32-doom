@@ -73,7 +73,8 @@
 #include "freertos/task.h"
 
 #include "esp_partition.h"
-#include "spi_flash_mmap.h"
+#include "esp_err.h"
+#include "esp_log.h"
 
 #ifdef __GNUG__
 #pragma implementation "i_system.h"
@@ -93,7 +94,7 @@ void I_uSleep(unsigned long usecs)
 static unsigned long getMsTicks() {
   struct timeval tv;
   struct timezone tz;
-  unsigned long thistimereply;
+//  unsigned long thistimereply;
 
   gettimeofday(&tv, &tz);
 
@@ -170,24 +171,53 @@ extern unsigned char *doom1waddata;
 
 typedef struct {
 	const esp_partition_t* part;
-	int offset;
-	int size;
+    esp_partition_mmap_handle_t handle;
+    const void *mmap_ptr;
+    int offset;
 } FileDesc;
 
-static FileDesc fds[32];
+#define MAX_N_FILES 2
+static FileDesc fds[MAX_N_FILES];
+const char* flash_wads[] = {
+    "doom2.wad",
+    "prboom-plus.wad"
+};
 
 int I_Open(const char *wad, int flags) {
-	int x=3;
-	while (fds[x].part!=NULL) x++;
-	if (strcmp(wad, "DOOM1.WAD")==0) {
-		fds[x].part=esp_partition_find_first(66, 6, NULL);
-		fds[x].offset=0;
-		fds[x].size=fds[x].part->size;
-	} else {
-		lprintf(LO_INFO, "I_Open: open %s failed\n", wad);
-		return -1;
-	}
-	return x;
+    FileDesc *file = NULL;
+    int fd;
+    for (int i = 0; i < MAX_N_FILES; ++i) {
+        if (fds[i].part == NULL) {
+            file = &fds[i];
+            fd = i;
+            break;
+        }
+    }
+
+    if (file == NULL) {
+        lprintf(LO_INFO, "I_Open: open %s failed\n", wad);
+        return -1;
+    }
+
+    for (int i = 0; i < sizeof(flash_wads)/sizeof(flash_wads[0]); ++i) {
+        if (!strcasecmp(wad, flash_wads[i])) {
+            file->part = esp_partition_find_first(66, 6+i, NULL);
+            assert(file->part);
+            file->offset=0;
+            break;
+        }
+    }
+
+    if (!file->part) {
+        lprintf(LO_INFO, "I_Open: open %s failed\n", wad);
+        return -1;
+    }
+
+    ESP_LOGD("i_system", "mmaping %s of size %lu", wad, file->part->size);
+    ESP_ERROR_CHECK(esp_partition_mmap(file->part, 0, file->part->size, ESP_PARTITION_MMAP_DATA, &file->mmap_ptr, &file->handle));
+    ESP_LOGI("i_system", "%s @%p", wad, file->mmap_ptr);
+
+    return fd;
 }
 
 int I_Lseek(int ifd, off_t offset, int whence) {
@@ -203,123 +233,26 @@ int I_Lseek(int ifd, off_t offset, int whence) {
 
 int I_Filelength(int ifd)
 {
-	return fds[ifd].size;
+    return fds[ifd].part->size;
 }
 
 void I_Close(int fd) {
-	fds[fd].part=NULL;
+    esp_partition_munmap(fds[fd].handle);
+    fds[fd].part = NULL;
 }
-
-
-typedef struct {
-	spi_flash_mmap_handle_t handle;
-	void *addr;
-	int offset;
-	size_t len;
-	int used;
-} MmapHandle;
-
-#define NO_MMAP_HANDLES 128
-static MmapHandle mmapHandle[NO_MMAP_HANDLES];
-
-static int nextHandle=0;
-static int getFreeHandle() {
-	int n=NO_MMAP_HANDLES;
-	while (mmapHandle[nextHandle].used!=0 && n!=0) {
-		nextHandle++;
-		if (nextHandle==NO_MMAP_HANDLES) nextHandle=0;
-		n--;
-	}
-	if (n==0) {
-		lprintf(LO_ERROR, "I_Mmap: More mmaps than NO_MMAP_HANDLES!");
-		exit(0);
-	}
-	
-	if (mmapHandle[nextHandle].addr) {
-		spi_flash_munmap(mmapHandle[nextHandle].handle);
-		mmapHandle[nextHandle].addr=NULL;
-//		printf("mmap: freeing handle %d\n", nextHandle);
-	}
-	int r=nextHandle;
-	nextHandle++;
-	if (nextHandle==NO_MMAP_HANDLES) nextHandle=0;
-
-	return r;
-}
-
-static void freeUnusedMmaps() {
-	for (int i=0; i<NO_MMAP_HANDLES; i++) {
-		//Check if handle is not in use but is mapped.
-		if (mmapHandle[i].used==0 && mmapHandle[i].addr!=NULL) {
-			spi_flash_munmap(mmapHandle[i].handle);
-			mmapHandle[i].addr=NULL;
-			printf("Freeing handle %d\n", i);
-		}
-	}
-}
-
-extern void *wad_ptr;
 
 void *I_Mmap(void *addr, size_t length, int prot, int flags, int ifd, off_t offset) {
-    return (byte*)wad_ptr + offset;
-/*
-
-	int i;
-	esp_err_t err;
-	void *retaddr=NULL;
-
-	for (i=0; i<NO_MMAP_HANDLES; i++) {
-		if (mmapHandle[i].offset==offset && mmapHandle[i].len==length) {
-			mmapHandle[i].used++;
-			return mmapHandle[i].addr;
-		}
-	}
-
-	i=getFreeHandle();
-
-    lprintf(LO_INFO, "I_Mmap: mmaping offset %d size %d handle %d\n", (int)offset, (int)length, i);
-	err=esp_partition_mmap(fds[ifd].part, offset, length, SPI_FLASH_MMAP_DATA, (const void**)&retaddr, &mmapHandle[i].handle);
-	if (err==ESP_ERR_NO_MEM) {
-		lprintf(LO_ERROR, "I_Mmap: No free address space. Cleaning up unused cached mmaps...\n");
-		freeUnusedMmaps();
-		err=esp_partition_mmap(fds[ifd].part, offset, length, SPI_FLASH_MMAP_DATA, (const void**)&retaddr, &mmapHandle[i].handle);
-	}
-	mmapHandle[i].addr=retaddr;
-	mmapHandle[i].len=length;
-	mmapHandle[i].used=1;
-	mmapHandle[i].offset=offset;
-
-	if (err!=ESP_OK) {
-		lprintf(LO_ERROR, "I_Mmap: Can't mmap: %x (len=%d)!", err, length);
-		return NULL;
-	}
-
-	return retaddr;
-*/
+    return (byte*)fds[ifd].mmap_ptr + offset;
 }
 
-
 int I_Munmap(void *addr, size_t length) {
-/*
-	int i;
-	for (i=0; i<NO_MMAP_HANDLES; i++) {
-		if (mmapHandle[i].addr==addr && mmapHandle[i].len==length) break;
-	}
-	if (i==NO_MMAP_HANDLES) {
-		lprintf(LO_ERROR, "I_Mmap: Freeing non-mmapped address/len combo!");
-		exit(0);
-	}
-//	lprintf(LO_INFO, "I_Mmap: freeing handle %d\n", i);
-	mmapHandle[i].used--;
-*/
     return 0;
 }
 
 void I_Read(int ifd, void* vbuf, size_t sz)
 {
-    //uint8_t *d=I_Mmap(NULL, sz, 0, 0, ifd, fds[ifd].offset);
-    memcpy(vbuf, (byte*)wad_ptr + fds[ifd].offset, sz);
-    //I_Munmap(d, sz);
+    memcpy(vbuf, (byte*)fds[ifd].mmap_ptr + fds[ifd].offset, sz);
+    fds[ifd].offset += sz;
 }
 
 const char *I_DoomExeDir(void)
@@ -327,25 +260,22 @@ const char *I_DoomExeDir(void)
   return "";
 }
 
-
-
 char* I_FindFile(const char* wfname, const char* ext)
 {
-  char *p;
-  p = malloc(strlen(wfname)+4);
-  sprintf(p, "%s.%s", wfname, ext);
+  char *findfile_name = malloc(strlen(wfname) + strlen(ext) + 1);
+
+  sprintf(findfile_name, "%s%s", wfname, ext);
+
+  for (int i = 0; i < MAX_N_FILES; ++i) {
+      if (!strcasecmp(findfile_name, flash_wads[i])) {
+          return findfile_name;
+      }
+  }
+
+  lprintf(LO_INFO, "I_FindFile: %s not found\n", findfile_name);
   return NULL;
 }
 
 void I_SetAffinityMask(void)
 {
 }
-
-
-int access(const char *path, int atype) {
-    return 1;
-}
-
-
-
-

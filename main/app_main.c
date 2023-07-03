@@ -12,25 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "esp_attr.h"
-
-#include "rom/cache.h"
-#include "rom/ets_sys.h"
-#include "rom/spi_flash.h"
-#include "rom/crc.h"
-
-#include "soc/soc.h"
-#include "soc/dport_reg.h"
-#include "soc/io_mux_reg.h"
-#include "soc/efuse_reg.h"
-#include "soc/rtc_cntl_reg.h"
-#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <stdlib.h>
-#include "esp_err.h"
-#include "esp_log.h"
-#include "esp_partition.h"
 
 #undef false
 #undef true
@@ -38,26 +21,16 @@
 
 #include "i80_lcd.h"
 
-#define TAG "app_main"
-
-void doomEngineTask(void *pvParameters)
+void doom_task(void *pvParameters)
 {
-//    char const *argv[]={"doom","-warp","1", NULL};
-    char const *argv[]={"doom","-cout","ICWEFDA", NULL};
-    doom_main(3, argv);
+    char const *argv[] = {
+        "doom", "-cout", "ICWEFDA"
+    };
+    doom_main(sizeof(argv)/sizeof(argv[0]), argv);
 }
-
-const void *wad_ptr;
 
 void app_main()
 {
-    const esp_partition_t* wad = esp_partition_find_first(66, 6, NULL);
-    assert(wad);
-
-    esp_partition_mmap_handle_t handle;
-    ESP_ERROR_CHECK(esp_partition_mmap(wad, 0, 4*1024*1014, ESP_PARTITION_MMAP_DATA, &wad_ptr, &handle));
-    ESP_LOGI(TAG, "WAD@%p", wad_ptr);
-
-    i80_lcd_init();
-    xTaskCreatePinnedToCore(&doomEngineTask, "doomEngine", 22480, NULL, 5, NULL, 0);
+    i80_lcd_init(); // early init to catch errors
+    xTaskCreatePinnedToCore(&doom_task, "doom", 22480, NULL, 5, NULL, 0);
 }

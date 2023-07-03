@@ -52,7 +52,6 @@
 #include "st_stuff.h"
 #include "lprintf.h"
 
-#include "rom/ets_sys.h"
 #include "esp_heap_caps.h"
 
 #include "i80_lcd.h"
@@ -128,12 +127,11 @@ uint16_t lcdpal[256];
 
 void I_SetPalette (int pal)
 {
-	int i, r, g, b, v;
 	int pplump = W_GetNumForName("PLAYPAL");
 	const byte * palette = W_CacheLumpNum(pplump);
 	palette+=pal*(3*256);
-	for (i=0; i<255 ; i++) {
-		v=((palette[0]>>3)<<11)+((palette[1]>>2)<<5)+(palette[2]>>3);
+    for (int i=0; i<255 ; i++) {
+        int v=((palette[0]>>3)<<11)+((palette[1]>>2)<<5)+(palette[2]>>3);
 		lcdpal[i]=(v>>8)+(v<<8);
 //		lcdpal[i]=v;
 		palette += 3;
@@ -174,12 +172,6 @@ void I_SetRes(void)
   screens[4].byte_pitch = SCREENPITCH;
   screens[4].short_pitch = SCREENPITCH / V_GetModePixelDepth(VID_MODE16);
   screens[4].int_pitch = SCREENPITCH / V_GetModePixelDepth(VID_MODE32);
-
-//Attempt at double-buffering. Does not work.
-//  free(screena);
-//  free(screenb);
-//  screena=malloc(SCREENPITCH*SCREENHEIGHT);
-//  screenb=malloc(SCREENPITCH*SCREENHEIGHT);
 
   screens[0].not_on_heap = true;
   screens[0].data = screen0;

@@ -1007,7 +1007,7 @@ void M_LoadDefaults (void)
   /* proff 2001/7/1 - added prboom.wad as last entry so it's always loaded and
      doesn't overlap with the cfg settings */
 //Disabled - JD
-//  wad_files[MAXLOADFILES-1]="prboom.wad";
+    wad_files[MAXLOADFILES-1]="prboom-plus";
 }
 
 
