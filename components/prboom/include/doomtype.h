@@ -82,6 +82,7 @@ typedef unsigned __int64 uint_64_t;
 #define CONSTFUNC __attribute__((const))
 #define PUREFUNC __attribute__((pure))
 #define NORETURN __attribute__ ((noreturn))
+#define PACKEDATTR __attribute__((packed))
 #else
 #define CONSTFUNC
 #define PUREFUNC
