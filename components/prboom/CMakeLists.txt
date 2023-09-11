@@ -1,6 +1,6 @@
 idf_component_register(
   INCLUDE_DIRS include
-  REQUIRES driver spi_flash esp_partition prboom-wad-tables
+  REQUIRES prboom-wad-tables
   SRCS
 am_map.c
 d_client.c

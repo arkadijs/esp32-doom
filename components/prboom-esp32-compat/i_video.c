@@ -43,7 +43,6 @@
 #include "r_draw.h"
 #include "d_main.h"
 #include "d_event.h"
-#include "gamepad.h"
 #include "i_video.h"
 #include "z_zone.h"
 #include "s_sound.h"
@@ -64,14 +63,7 @@ int joyleft, joyright, joyup, joydown;
 
 void I_StartTic (void)
 {
-//	gamepadPoll();
 }
-
-
-static void I_InitInputs(void)
-{
-}
-
 
 
 //static void I_UploadNewPalette(int pal)
@@ -194,9 +186,6 @@ void I_InitGraphics(void)
 
     /* Set the video mode */
     I_UpdateVideoMode();
-
-    /* Initialize the input system */
-    I_InitInputs();
   }
 }
 
