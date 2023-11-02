@@ -66,7 +66,7 @@ typedef struct {
 
     byte *fb;
     void *trans_buf;
-    uint  next_line;
+    unsigned int next_line;
 } lcd_context_t;
 
 static lcd_context_t lcd_context;
