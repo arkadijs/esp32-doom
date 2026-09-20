@@ -27,6 +27,7 @@ m_misc.c
 m_random.c
 md5.c
 memio.c
+midifile.c
 mus2mid.c
 p_ceilng.c
 p_checksum.c

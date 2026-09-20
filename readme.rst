@@ -8,7 +8,8 @@ has 16MiB of flash (app + doom2.wad) and at least 4MiB of PSRAM connected.
    :target: https://youtu.be/N5STKhmB9lc
    
 The demo gameplay above runs on LilyGo's
-`T-Display-S3 <https://www.lilygo.cc/products/t-display-s3>`_ hardware.
+`T-Display-S3 <https://www.lilygo.cc/products/t-display-s3>`_ hardware
+with an I2S DAC.
 
 Compiling
 ---------
@@ -41,8 +42,8 @@ Data 0-7   39..48
 
 Sound
 -----
-Stereo sound at 48kHz via any cheap TI PCM510x or ES7148 / ES7134 **I2S** DAC
-from `AliExpress <https://www.aliexpress.com/item/1005002898278583.html>`_ ($3).
+Stereo sound at 22kHz via any cheap TI PCM510x or ES7148 / ES7134 **I2S** DAC
+from `AliExpress <https://www.aliexpress.com/w/wholesale-TI-PCM5102.html>`_ ($3).
 
 =========  ======
 Pin        GPIO
@@ -70,7 +71,6 @@ Edit and run::
 
 Plan
 ----
-- Sound FX or music.
 - USB mouse and keyboard.
 - Savegames and demos.
 - `Sunlust <https://www.moddb.com/mods/sunlust>`_!
