@@ -55,37 +55,37 @@
 //
 //-----------------------------------------------------------------------------
 
-static void cheat_mus();
-static void cheat_choppers();
-static void cheat_god();
-static void cheat_fa();
-static void cheat_k();
-static void cheat_kfa();
-static void cheat_noclip();
-static void cheat_pw();
-static void cheat_behold();
-static void cheat_clev();
-static void cheat_mypos();
-static void cheat_rate();
-static void cheat_comp();
-static void cheat_friction();
-static void cheat_pushers();
-static void cheat_tnttran();
-static void cheat_massacre();
-static void cheat_ddt();
-static void cheat_hom();
-static void cheat_fast();
-static void cheat_tntkey();
-static void cheat_tntkeyx();
-static void cheat_tntkeyxx();
-static void cheat_tntweap();
-static void cheat_tntweapx();
-static void cheat_tntammo();
-static void cheat_tntammox();
-static void cheat_smart();
-static void cheat_pitch();
-static void cheat_megaarmour();
-static void cheat_health();
+static void cheat_mus(intptr_t arg);
+static void cheat_choppers(intptr_t arg);
+static void cheat_god(intptr_t arg);
+static void cheat_fa(intptr_t arg);
+static void cheat_k(intptr_t arg);
+static void cheat_kfa(intptr_t arg);
+static void cheat_noclip(intptr_t arg);
+static void cheat_pw(intptr_t arg);
+static void cheat_behold(intptr_t arg);
+static void cheat_clev(intptr_t arg);
+static void cheat_mypos(intptr_t arg);
+static void cheat_rate(intptr_t arg);
+static void cheat_comp(intptr_t arg);
+static void cheat_friction(intptr_t arg);
+static void cheat_pushers(intptr_t arg);
+static void cheat_tnttran(intptr_t arg);
+static void cheat_massacre(intptr_t arg);
+static void cheat_ddt(intptr_t arg);
+static void cheat_hom(intptr_t arg);
+static void cheat_fast(intptr_t arg);
+static void cheat_tntkey(intptr_t arg);
+static void cheat_tntkeyx(intptr_t arg);
+static void cheat_tntkeyxx(intptr_t arg);
+static void cheat_tntweap(intptr_t arg);
+static void cheat_tntweapx(intptr_t arg);
+static void cheat_tntammo(intptr_t arg);
+static void cheat_tntammox(intptr_t arg);
+static void cheat_smart(intptr_t arg);
+static void cheat_pitch(intptr_t arg);
+static void cheat_megaarmour(intptr_t arg);
+static void cheat_health(intptr_t arg);
 
 //-----------------------------------------------------------------------------
 //
@@ -261,9 +261,9 @@ struct cheat_s cheat[] = {
 
 //-----------------------------------------------------------------------------
 
-static void cheat_mus(buf)
-char buf[3];
+static void cheat_mus(intptr_t arg)
 {
+  const char *buf = (const char *)arg;
   int musnum;
 
   //jff 3/20/98 note: this cheat allowed in netgame/demorecord
@@ -303,14 +303,14 @@ char buf[3];
 }
 
 // 'choppers' invulnerability & chainsaw
-static void cheat_choppers()
+static void cheat_choppers(intptr_t arg)
 {
   plyr->weaponowned[wp_chainsaw] = true;
   plyr->powers[pw_invulnerability] = true;
   plyr->message = s_STSTR_CHOPPERS; // Ty 03/27/98 - externalized
 }
 
-static void cheat_god()
+static void cheat_god(intptr_t arg)
 {                                    // 'dqd' cheat for toggleable god mode
   plyr->cheats ^= CF_GODMODE;
   if (plyr->cheats & CF_GODMODE)
@@ -326,7 +326,7 @@ static void cheat_god()
 }
 
 // CPhipps - new health and armour cheat codes
-static void cheat_health()
+static void cheat_health(intptr_t arg)
 {
   if (!(plyr->cheats & CF_GODMODE)) {
     if (plyr->mo)
@@ -336,14 +336,14 @@ static void cheat_health()
   }
 }
 
-static void cheat_megaarmour()
+static void cheat_megaarmour(intptr_t arg)
 {
   plyr->armorpoints = idfa_armor;      // Ty 03/09/98 - deh
   plyr->armortype = idfa_armor_class;  // Ty 03/09/98 - deh
   plyr->message = s_STSTR_BEHOLDX; // Ty 03/27/98 - externalized
 }
 
-static void cheat_fa()
+static void cheat_fa(intptr_t arg)
 {
   int i;
 
@@ -370,7 +370,7 @@ static void cheat_fa()
   plyr->message = s_STSTR_FAADDED;
 }
 
-static void cheat_k()
+static void cheat_k(intptr_t arg)
 {
   int i;
   for (i=0;i<NUMCARDS;i++)
@@ -381,14 +381,14 @@ static void cheat_k()
       }
 }
 
-static void cheat_kfa()
+static void cheat_kfa(intptr_t arg)
 {
-  cheat_k();
-  cheat_fa();
+  cheat_k(0);
+  cheat_fa(0);
   plyr->message = STSTR_KFAADDED;
 }
 
-static void cheat_noclip()
+static void cheat_noclip(intptr_t arg)
 {
   // Simplified, accepting both "noclip" and "idspispopd".
   // no clipping mode cheat
@@ -398,7 +398,7 @@ static void cheat_noclip()
 }
 
 // 'behold?' power-up cheats (modified for infinite duration -- killough)
-static void cheat_pw(int pw)
+static void cheat_pw(intptr_t pw)
 {
   if (plyr->powers[pw])
     plyr->powers[pw] = pw!=pw_strength && pw!=pw_allmap;  // killough
@@ -412,14 +412,15 @@ static void cheat_pw(int pw)
 }
 
 // 'behold' power-up menu
-static void cheat_behold()
+static void cheat_behold(intptr_t arg)
 {
   plyr->message = s_STSTR_BEHOLD; // Ty 03/27/98 - externalized
 }
 
 // 'clev' change-level cheat
-static void cheat_clev(char buf[3])
+static void cheat_clev(intptr_t arg)
 {
+  const char *buf = (const char *)arg;
   int epsd, map;
 
   if (gamemode == commercial)
@@ -452,7 +453,7 @@ static void cheat_clev(char buf[3])
 
 // 'mypos' for player position
 // killough 2/7/98: simplified using dprintf and made output more user-friendly
-static void cheat_mypos()
+static void cheat_mypos(intptr_t arg)
 {
   doom_printf("Position (%d,%d,%d)\tAngle %-.0f",
           players[consoleplayer].mo->x >> FRACBITS,
@@ -462,14 +463,14 @@ static void cheat_mypos()
 }
 
 // cph - cheat to toggle frame rate/rendering stats display
-static void cheat_rate()
+static void cheat_rate(intptr_t arg)
 {
   rendering_stats ^= 1;
 }
 
 // compatibility cheat
 
-static void cheat_comp()
+static void cheat_comp(intptr_t arg)
 {
   // CPhipps - modified for new compatibility system
   compatibility_level++; compatibility_level %= MAX_COMPATIBILITY_LEVEL;
@@ -481,7 +482,7 @@ static void cheat_comp()
 }
 
 // variable friction cheat
-static void cheat_friction()
+static void cheat_friction(intptr_t arg)
 {
   plyr->message =                       // Ty 03/27/98 - *not* externalized
     (variable_friction = !variable_friction) ? "Variable Friction enabled" :
@@ -491,14 +492,14 @@ static void cheat_friction()
 
 // Pusher cheat
 // phares 3/10/98
-static void cheat_pushers()
+static void cheat_pushers(intptr_t arg)
 {
   plyr->message =                      // Ty 03/27/98 - *not* externalized
     (allow_pushers = !allow_pushers) ? "Pushers enabled" : "Pushers disabled";
 }
 
 // translucency cheat
-static void cheat_tnttran()
+static void cheat_tnttran(intptr_t arg)
 {
   plyr->message =                      // Ty 03/27/98 - *not* externalized
     (general_translucency = !general_translucency) ? "Translucency enabled" :
@@ -509,7 +510,7 @@ static void cheat_tnttran()
     R_InitTranMap(0);
 }
 
-static void cheat_massacre()    // jff 2/01/98 kill all monsters
+static void cheat_massacre(intptr_t arg)    // jff 2/01/98 kill all monsters
 {
   // jff 02/01/98 'em' cheat - kill all monsters
   // partially taken from Chi's .46 port
@@ -526,7 +527,7 @@ static void cheat_massacre()    // jff 2/01/98 kill all monsters
   P_MapStart();
   do
     while ((currentthinker = P_NextThinker(currentthinker,th_all)) != NULL)
-    if (currentthinker->function == P_MobjThinker &&
+    if (currentthinker->function == (think_t)P_MobjThinker &&
   !(((mobj_t *) currentthinker)->flags & mask) && // killough 7/20/98
         (((mobj_t *) currentthinker)->flags & MF_COUNTKILL ||
          ((mobj_t *) currentthinker)->type == MT_SKULL))
@@ -551,7 +552,7 @@ static void cheat_massacre()    // jff 2/01/98 kill all monsters
 
 // killough 2/7/98: move iddt cheat from am_map.c to here
 // killough 3/26/98: emulate Doom better
-static void cheat_ddt()
+static void cheat_ddt(intptr_t arg)
 {
   extern int ddt_cheating;
   if (automapmode & am_active)
@@ -559,7 +560,7 @@ static void cheat_ddt()
 }
 
 // killough 2/7/98: HOM autodetection
-static void cheat_hom()
+static void cheat_hom(intptr_t arg)
 {
   extern int autodetect_hom;           // Ty 03/27/98 - *not* externalized
   plyr->message = (autodetect_hom = !autodetect_hom) ? "HOM Detection On" :
@@ -567,7 +568,7 @@ static void cheat_hom()
 }
 
 // killough 3/6/98: -fast parameter toggle
-static void cheat_fast()
+static void cheat_fast(intptr_t arg)
 {
   plyr->message = (fastparm = !fastparm) ? "Fast Monsters On" :
     "Fast Monsters Off";  // Ty 03/27/98 - *not* externalized
@@ -575,17 +576,17 @@ static void cheat_fast()
 }
 
 // killough 2/16/98: keycard/skullkey cheat functions
-static void cheat_tntkey()
+static void cheat_tntkey(intptr_t arg)
 {
   plyr->message = "Red, Yellow, Blue";  // Ty 03/27/98 - *not* externalized
 }
 
-static void cheat_tntkeyx()
+static void cheat_tntkeyx(intptr_t arg)
 {
   plyr->message = "Card, Skull";        // Ty 03/27/98 - *not* externalized
 }
 
-static void cheat_tntkeyxx(int key)
+static void cheat_tntkeyxx(intptr_t key)
 {
   plyr->message = (plyr->cards[key] = !plyr->cards[key]) ?
     "Key Added" : "Key Removed";  // Ty 03/27/98 - *not* externalized
@@ -593,15 +594,15 @@ static void cheat_tntkeyxx(int key)
 
 // killough 2/16/98: generalized weapon cheats
 
-static void cheat_tntweap()
+static void cheat_tntweap(intptr_t arg)
 {                                   // Ty 03/27/98 - *not* externalized
   plyr->message = gamemode==commercial ?           // killough 2/28/98
     "Weapon number 1-9" : "Weapon number 1-8";
 }
 
-static void cheat_tntweapx(buf)
-char buf[3];
+static void cheat_tntweapx(intptr_t arg)
 {
+  const char *buf = (const char *)arg;
   int w = *buf - '1';
 
   if ((w==wp_supershotgun && gamemode!=commercial) ||      // killough 2/28/98
@@ -624,14 +625,14 @@ char buf[3];
 }
 
 // killough 2/16/98: generalized ammo cheats
-static void cheat_tntammo()
+static void cheat_tntammo(intptr_t arg)
 {
   plyr->message = "Ammo 1-4, Backpack";  // Ty 03/27/98 - *not* externalized
 }
 
-static void cheat_tntammox(buf)
-char buf[1];
+static void cheat_tntammox(intptr_t arg)
 {
+  const char *buf = (const char *)arg;
   int a = *buf - '1';
   if (*buf == 'b')  // Ty 03/27/98 - strings *not* externalized
     if ((plyr->backpack = !plyr->backpack))
@@ -652,13 +653,13 @@ char buf[1];
       }
 }
 
-static void cheat_smart()
+static void cheat_smart(intptr_t arg)
 {
   plyr->message = (monsters_remember = !monsters_remember) ?
     "Smart Monsters Enabled" : "Smart Monsters Disabled";
 }
 
-static void cheat_pitch()
+static void cheat_pitch(intptr_t arg)
 {
   plyr->message=(pitched_sounds = !pitched_sounds) ? "Pitch Effects Enabled" :
     "Pitch Effects Disabled";
@@ -685,7 +686,7 @@ boolean M_FindCheats(int key)
     {
       *arg++ = tolower(key);             // store key in arg buffer
       if (!--argsleft)                   // if last key in arg list,
-        cheat[cht].func(argbuf);         // process the arg buffer
+        cheat[cht].func((intptr_t)argbuf); // process the arg buffer
       return 1;                          // affirmative response
     }
 

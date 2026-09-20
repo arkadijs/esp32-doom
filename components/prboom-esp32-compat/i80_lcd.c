@@ -148,8 +148,7 @@ void i80_lcd_init(void) {
         },
         .bus_width = CONFIG_LCD_I80_BUS_WIDTH,
         .max_transfer_bytes = LCD_H_RES * (LCD_LINES_PER_TRANS+1) * 2,
-        .psram_trans_align = PSRAM_DATA_ALIGNMENT,
-        .sram_trans_align = 4,
+        .dma_burst_size = PSRAM_DATA_ALIGNMENT,
     };
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
     esp_lcd_panel_io_handle_t io_handle = NULL;
@@ -177,7 +176,7 @@ void i80_lcd_init(void) {
     ESP_LOGI(TAG, "Installing ST7789 LCD driver");
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = PIN_NUM_RST,
-        .rgb_endian = LCD_RGB_ENDIAN_RGB,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = 16,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
@@ -212,17 +211,17 @@ void i80_lcd_init(void) {
     assert(sem);
 
     lcd_context = (lcd_context_t){
-            .panel_handle = panel_handle,
-            .panel_io_handle = io_handle,
-            .sem = sem,
-            .fb = fb,
-            .trans_buf = trans_buf,
-            .next_line = 0
-        };
+        .panel_handle = panel_handle,
+        .panel_io_handle = io_handle,
+        .sem = sem,
+        .fb = fb,
+        .trans_buf = trans_buf,
+        .next_line = 0,
+    };
 
     int core = 1;
 #ifdef CONFIG_FREERTOS_UNICORE
     core = 0;
 #endif
-    xTaskCreatePinnedToCore(&lcd_task, "lcd", 6000, NULL, 6, NULL, core);
+    xTaskCreatePinnedToCore(lcd_task, "lcd", 6000, NULL, 6, NULL, core);
 }

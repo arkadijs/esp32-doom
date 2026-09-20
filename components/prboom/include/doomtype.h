@@ -41,12 +41,9 @@
 
 #ifndef __BYTEBOOL__
 #define __BYTEBOOL__
-/* Fixed to use builtin bool type with C++. */
-#ifdef __cplusplus
-typedef bool boolean;
-#else
-typedef enum {false, true} boolean;
-#endif
+/* Several legacy APIs use boolean as a small integer mode (including 2), so
+ * C23's two-valued bool is not a compatible replacement. */
+typedef int boolean;
 typedef unsigned char byte;
 #endif
 
@@ -92,7 +89,7 @@ typedef unsigned __int64 uint_64_t;
 //esp32
 #undef PATH_MAX
 #define PATH_MAX 32
-
+#define PACKED_STRUCT(...) struct __VA_ARGS__ PACKEDATTR
 
 /* CPhipps - use limits.h instead of depreciated values.h */
 #include <limits.h>

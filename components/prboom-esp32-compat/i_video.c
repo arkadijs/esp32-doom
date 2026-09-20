@@ -131,8 +131,7 @@ void I_SetPalette (int pal)
 	W_UnlockLumpNum(pplump);
 }
 
-
-void *screen0;
+static void *screen0;
 
 void I_PreInitGraphics(void)
 {
@@ -167,8 +166,6 @@ void I_SetRes(void)
 
   screens[0].not_on_heap = true;
   screens[0].data = screen0;
-
-//  spi_lcd_init();
 
   lprintf(LO_INFO,"I_SetRes: Using resolution %dx%d\n", SCREENWIDTH, SCREENHEIGHT);
 }

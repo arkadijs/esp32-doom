@@ -34,6 +34,8 @@
 #ifndef __M_CHEAT__
 #define __M_CHEAT__
 
+#include <stdint.h>
+
 /* killough 4/16/98: Cheat table structure */
 
 extern struct cheat_s {
@@ -48,7 +50,7 @@ extern struct cheat_s {
     not_deh = 16,
     not_net = not_dm | not_coop
   } const when;
-  void (*const func)();
+  void (*const func)(intptr_t arg);
   const int arg;
   uint_64_t code, mask;
 } cheat[];

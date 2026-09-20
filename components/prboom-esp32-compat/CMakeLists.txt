@@ -1,4 +1,4 @@
 idf_component_register(SRCS i_main.c i_network.c i_sound.c i_system.c i_video.c
                        i80_lcd.c i2s_dac.c
                        INCLUDE_DIRS include
-                       REQUIRES esp_lcd esp_driver_i2s spiffs prboom)
+                       REQUIRES esp_lcd esp_driver_i2s esp_timer spiffs prboom)

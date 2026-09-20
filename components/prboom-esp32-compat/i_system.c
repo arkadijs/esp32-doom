@@ -75,13 +75,12 @@
 #include "esp_partition.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #ifdef __GNUG__
 #pragma implementation "i_system.h"
 #endif
 #include "i_system.h"
-
-#include <sys/time.h>
 
 int realtime=0;
 
@@ -92,29 +91,12 @@ void I_uSleep(unsigned long usecs)
 }
 
 static unsigned long getMsTicks() {
-  struct timeval tv;
-  struct timezone tz;
-//  unsigned long thistimereply;
-
-  gettimeofday(&tv, &tz);
-
-  //convert to ms
-  unsigned long now = tv.tv_usec/1000+tv.tv_sec*1000;
-  return now;
+  return (unsigned long)(esp_timer_get_time() / 1000);
 }
 
 int I_GetTime_RealTime (void)
 {
-  struct timeval tv;
-  struct timezone tz;
-  unsigned long thistimereply;
-
-  gettimeofday(&tv, &tz);
-
-  thistimereply = (tv.tv_sec * TICRATE + (tv.tv_usec * TICRATE) / 1000000);
-
-  return thistimereply;
-
+  return (int)(esp_timer_get_time() * TICRATE / 1000000);
 }
 
 const int displaytime=0;

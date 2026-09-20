@@ -47,7 +47,10 @@
  *  action functions cleanly.
  */
 // killough 11/98: convert back to C instead of C++
-typedef  void (*actionf_t)();
+/* State actions have one of several signatures.  Keep the historical erased
+ * storage type, but spell out the C23 no-argument prototype.  Conversions to
+ * and from the concrete signatures are explicit at the storage/call sites. */
+typedef void (*actionf_t)(void);
 //typedef  void (*actionf_v)();
 //typedef  void (*actionf_p1)( void* );
 //typedef  void (*actionf_p2)( void*, void* );
@@ -69,7 +72,8 @@ typedef union
  *  function pointer to a routine to handle
  *  an actor.
  */
-typedef actionf_t  think_t;
+struct thinker_s;
+typedef void (*think_t)(struct thinker_s *thinker);
 
 
 /* Doubly linked list of actors. */
