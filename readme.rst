@@ -47,10 +47,12 @@ from `AliExpress <https://www.aliexpress.com/item/1005002898278583.html>`_ ($3).
 =========  ======
 Pin        GPIO
 =========  ======
-BCLK       TBD
-LRCK       TBD
-DOUT       TBD
+BCLK       16
+LRCK       21
+DOUT       17
 =========  ======
+
+See ``components/prboom-esp32-compat/i2s_dac.c`` for details.
 
 Flashing
 --------

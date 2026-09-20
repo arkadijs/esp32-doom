@@ -20,6 +20,7 @@
 #include "i_system.h"
 
 #include "i80_lcd.h"
+#include "i2s_dac.h"
 
 void doom_task(void *pvParameters)
 {
@@ -32,5 +33,6 @@ void doom_task(void *pvParameters)
 void app_main()
 {
     i80_lcd_init(); // early init to catch errors
+    i2s_dac_init();
     xTaskCreatePinnedToCore(&doom_task, "doom", 22480, NULL, 5, NULL, 0);
 }
