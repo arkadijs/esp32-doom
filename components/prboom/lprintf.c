@@ -68,6 +68,8 @@ int cons_output_mask = -1;        /* all output enabled */
 //Esp32 doesn't use the 2K-sized stack-allocated string but directly passes args to vprintf.
 #if 1
 int lprintf(OutputLevels pri, const char *s, ...) {
+  if (pri == LO_DEBUG)
+    return 0;
   va_list v;
   va_start(v,s);
   vprintf(s,v);
