@@ -1,4 +1,5 @@
-build/
+build*/
+managed_components/
 sdkconfig.old
 *.o
 components/prboom/native/doom

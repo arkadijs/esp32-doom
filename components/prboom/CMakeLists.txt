@@ -76,6 +76,16 @@ z_bmalloc.c
 z_zone.c
 )
 
+# Keep the public headers in the CMake target so CMake-aware IDEs such as
+# Qt Creator display and index them as part of the component.
+file(GLOB component_headers CONFIGURE_DEPENDS
+     "${CMAKE_CURRENT_LIST_DIR}/include/*.h")
+target_sources(${COMPONENT_LIB} PRIVATE ${component_headers})
+
+target_include_directories(${COMPONENT_LIB} PRIVATE
+  ${CMAKE_CURRENT_LIST_DIR}/../prboom-esp32-compat/include
+)
+
 target_compile_options(${COMPONENT_LIB} PRIVATE
   -Wno-error=char-subscripts -Wno-error=unused-value -Wno-error=unused-const-variable -Wno-error=unused-but-set-parameter
   -Wno-error=parentheses -Wno-error=int-to-pointer-cast -Wno-error=duplicate-decl-specifier -Wno-error=format-overflow

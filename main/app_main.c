@@ -21,6 +21,9 @@
 
 #include "i80_lcd.h"
 #include "i2s_dac.h"
+#ifdef DOOM_USB_HOST
+#include "i_usb.h"
+#endif
 
 void doom_task(void *pvParameters)
 {
@@ -34,5 +37,8 @@ void app_main()
 {
     i80_lcd_init(); // early init to catch errors
     i2s_dac_init();
+#ifdef DOOM_USB_HOST
+    usb_init();
+#endif
     xTaskCreatePinnedToCore(&doom_task, "doom", 22480, NULL, 5, NULL, 0);
 }

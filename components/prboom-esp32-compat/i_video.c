@@ -54,6 +54,9 @@
 #include "esp_heap_caps.h"
 
 #include "i80_lcd.h"
+#ifdef DOOM_USB_HOST
+#include "i_usb.h"
+#endif
 
 
 int use_fullscreen=0;
@@ -63,6 +66,9 @@ int joyleft, joyright, joyup, joydown;
 
 void I_StartTic (void)
 {
+#ifdef DOOM_USB_HOST
+  I_USB_Poll();
+#endif
 }
 
 

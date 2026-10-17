@@ -349,23 +349,38 @@ void G_BuildTiccmd(ticcmd_t* cmd)
         cmd->angleturn += angleturn[tspeed];
     }
 
+#ifdef DOOM_USB_HOST
+  // WASD alongside the configurable bindings
+  if (gamekeydown[key_up] || gamekeydown['w'])
+    forward += forwardmove[speed];
+  if (gamekeydown[key_down] || gamekeydown['s'])
+    forward -= forwardmove[speed];
+#else
   if (gamekeydown[key_up])
     forward += forwardmove[speed];
   if (gamekeydown[key_down])
     forward -= forwardmove[speed];
+#endif
   if (joyymove < 0)
     forward += forwardmove[speed];
   if (joyymove > 0)
     forward -= forwardmove[speed];
+#ifdef DOOM_USB_HOST
+  if (gamekeydown[key_straferight] || gamekeydown['d'])
+    side += sidemove[speed];
+  if (gamekeydown[key_strafeleft] || gamekeydown['a'])
+    side -= sidemove[speed];
+#else
   if (gamekeydown[key_straferight])
     side += sidemove[speed];
   if (gamekeydown[key_strafeleft])
     side -= sidemove[speed];
+#endif
 
     // buttons
   cmd->chatchar = HU_dequeueChatChar();
 
-  if (gamekeydown[key_fire] || joybuttons[joybfire])
+  if (gamekeydown[key_fire] || joybuttons[joybfire] || mousebuttons[mousebfire])
     cmd->buttons |= BT_ATTACK;
 
   if (gamekeydown[key_use] || joybuttons[joybuse])
@@ -453,7 +468,12 @@ void G_BuildTiccmd(ticcmd_t* cmd)
     }
 
   // mouse
-
+  forward += mousey;
+  if (strafe)
+    side += mousex/4;
+  else
+    cmd->angleturn -= mousex*0x8;
+  mousex = mousey = 0;
 
   if (forward > MAXPLMOVE)
     forward = MAXPLMOVE;

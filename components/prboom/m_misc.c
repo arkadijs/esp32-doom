@@ -62,6 +62,11 @@
 #include "st_stuff.h"
 #include "dstrings.h"
 #include "m_misc.h"
+#ifdef DOOM_USB_HOST
+#define MOUSE_SENS_HORIZ_DEFAULT 20
+#else
+#define MOUSE_SENS_HORIZ_DEFAULT 10
+#endif
 #include "s_sound.h"
 #include "sounds.h"
 #include "i_joy.h"
@@ -260,8 +265,13 @@ default_t defaults[] =
    def_bool,ss_stat}, // disables doubled card and skull key display on status bar
   {"show_messages",{&showMessages},{1},0,1,
    def_bool,ss_none}, // enables message display
+#ifdef DOOM_USB_HOST
+  {"autorun",{&autorun},{1},0,1,  // killough 3/6/98: preserve autorun across games
+   def_bool,ss_none},
+#else
   {"autorun",{&autorun},{0},0,1,  // killough 3/6/98: preserve autorun across games
    def_bool,ss_none},
+#endif
 
   {"Compatibility settings",{NULL},{0},UL,UL,def_none,ss_none},
   {"comp_zombie",{&default_comp[comp_zombie]},{0},0,1,def_bool,ss_comp,&comp[comp_zombie]},
@@ -381,7 +391,7 @@ default_t defaults[] =
   {"use_mouse",{&usemouse},{1},0,1,
    def_bool,ss_none}, // enables use of mouse with DOOM
   //jff 4/3/98 allow unlimited sensitivity
-  {"mouse_sensitivity_horiz",{&mouseSensitivity_horiz},{10},0,UL,
+  {"mouse_sensitivity_horiz",{&mouseSensitivity_horiz},{MOUSE_SENS_HORIZ_DEFAULT},0,UL,
    def_int,ss_none}, /* adjust horizontal (x) mouse sensitivity killough/mead */
   //jff 4/3/98 allow unlimited sensitivity
   {"mouse_sensitivity_vert",{&mouseSensitivity_vert},{10},0,UL,

@@ -1,0 +1,20 @@
+# USB host mode uses the ESP32-S3 USB-OTG pins. Keep console output on UART0;
+# USB Serial/JTAG cannot share the connector while a HID peripheral is hosted.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set
+
+# Some USB-C adapters expose their downstream connector through an integrated
+# hub, even when only one keyboard or mouse is attached.
+CONFIG_USB_HOST_HUBS_SUPPORTED=y
+# CONFIG_USB_HOST_HUB_MULTI_LEVEL is not set
+
+# The USB host stack needs internal DMA-capable RAM (hub interrupt pipes) after
+# the game has started; keep small general-purpose allocations in PSRAM.
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=0
+
+# Low-speed devices behind a hub need longer reset/recovery timing than the
+# defaults to enumerate reliably.
+CONFIG_USB_HOST_RESET_HOLD_MS=50
+CONFIG_USB_HOST_SET_ADDR_RECOVERY_MS=20
+CONFIG_USB_HOST_EXT_PORT_RESET_RECOVERY_DELAY_MS=100

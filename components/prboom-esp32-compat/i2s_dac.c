@@ -24,7 +24,7 @@ typedef struct {
 static dac_context_t dac_context;
 
 void i2s_dac_init(void) {
-    ESP_LOGI(TAG, "I2S init: %d Hz, 16-bit stereo, BCLK=%d Hz",
+    ESP_LOGI(TAG, "%d Hz, 16-bit stereo, BCLK=%d Hz",
              I2S_DAC_SAMPLE_RATE, I2S_DAC_SAMPLE_RATE * 16 * 2);
     i2s_chan_handle_t tx_chan = NULL;
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);

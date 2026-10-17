@@ -9,13 +9,25 @@ has 16MiB of flash (app + doom2.wad) and at least 4MiB of PSRAM connected.
    
 The demo gameplay above runs on LilyGo's
 `T-Display-S3 <https://www.lilygo.cc/products/t-display-s3>`_ hardware
-with an I2S DAC.
+with an external I2S DAC.
 
 Compiling
 ---------
 This code is an `esp-idf <https://github.com/espressif/esp-idf>`_ project::
 
 	idf.py build
+
+The default build is the USB keyboard/mouse host image. It uses the ESP32-S3
+USB-OTG connector for the peripheral and keeps diagnostics on UART0; USB
+Serial/JTAG output is therefore unavailable on that connector. To build the
+variant that keeps USB available for the developer console instead, or both
+variants, use::
+
+	idf.py build-console
+	idf.py build-all-variants
+
+The binaries are written as ``build/esp32-doom-usb-host.bin`` and
+``build-console/esp32-doom.bin``.
 
 Run ``idf.py menuconfig`` to configure pins.
 
@@ -57,9 +69,13 @@ See ``components/prboom-esp32-compat/i2s_dac.c`` for details.
 
 Flashing
 --------
-The main Doom binary can be built and flashed using::
+The main Doom binary (USB host variant) can be built and flashed using::
 
-	idf.py flash
+	idf.py app-flash
+
+To flash the USB console variant instead, use::
+
+	idf.py app-flash-console
 
 Doom also needs game data, and ESP32-Doom expects this data to be put on
 separate flash partitions. See ``partitions.csv`` for details.
@@ -71,7 +87,6 @@ Edit and run::
 
 Plan
 ----
-- USB mouse and keyboard.
 - Savegames and demos.
 - `Sunlust <https://www.moddb.com/mods/sunlust>`_!
   (need 64MiB flash and memory mapping hacks)
@@ -79,8 +94,11 @@ Plan
 Credits
 -------
 Doom is released by ID software in 1999 under the GNU GPL.
+
 PrBoom is a modification of this code; its authors are credited in 
 the ``components/prboom/AUTHORS`` file.
+
 The ESP32 modifications are done by Espressif and licensed under the
 Apache license, version 2.0.
-ESP32-S3 port and sound by Arkadi Shishlov, Apache license 2.0.
+
+ESP32-S3 port, sound and USB support by Arkadi Shishlov, Apache license 2.0.

@@ -736,13 +736,13 @@ static void NormalizeSlashes(char *str)
  * CPhipps  - static, proper prototype
  *    - 12/1999 - rewritten to use I_FindFile
  */
-static char *FindIWADFile(void)
+static const char *FindIWADFile(void)
 {
-  char  * iwad  = NULL;
-  char *hardcodedIWad="doom2.wad";
-  iwad=malloc(strlen(hardcodedIWad)+1);
-  strcpy(iwad, hardcodedIWad);
+  const char *hardcodedIWad="doom2.wad";
+  return hardcodedIWad;
 #if 0
+  char *iwad=malloc(strlen(hardcodedIWad)+1);
+  strcpy(iwad, hardcodedIWad);
   int   i;
 
   i = M_CheckParm("-iwad");
@@ -752,8 +752,8 @@ static char *FindIWADFile(void)
     for (i=0; !iwad && i<nstandard_iwads; i++)
       iwad = I_FindFile(standard_iwads[i], ".wad");
   }
-#endif
   return iwad;
+#endif
 }
 
 //
@@ -781,7 +781,7 @@ static void IdentifyVersion (void)
 {
   int         i;    //jff 3/24/98 index of args on commandline
   struct stat sbuf; //jff 3/24/98 used to test save path for existence
-  char *iwad;
+  const char *iwad;
 
   // set save path to -save parm or current dir
 
@@ -858,7 +858,6 @@ static void IdentifyVersion (void)
       //jff 9/3/98 use logical output routine
       lprintf(LO_WARN,"Unknown Game Version, may not work\n");
     D_AddFile(iwad,source_iwad);
-    free(iwad);
   }
   else
     I_Error("IdentifyVersion: IWAD not found\n");
