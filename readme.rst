@@ -102,3 +102,8 @@ The ESP32 modifications are done by Espressif and licensed under the
 Apache license, version 2.0.
 
 ESP32-S3 port, sound and USB support by Arkadi Shishlov, Apache license 2.0.
+
+DOSBox OPL emulator by the DOSBox Team licensed under GNU GPL v2 or later.
+
+MIDI OPL player interface by Simon Howard, Chocolate Doom licensed under
+GNU GPL v2 or later.
