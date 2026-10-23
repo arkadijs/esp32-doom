@@ -4,9 +4,9 @@ This is a port of PrBoom, which is an extended port of the original 1993
 *ID software* hit game Doom, to the ESP32-S3. It runs on an ESP32-S3 which
 has 16MiB of flash (app + doom2.wad) and at least 4MiB of PSRAM connected.
 
-.. image:: https://img.youtube.com/vi/N5STKhmB9lc/hqdefault.jpg
-   :target: https://youtu.be/N5STKhmB9lc
-   
+.. image:: https://img.youtube.com/vi/0bvNRb1Mimw/hqdefault.jpg
+   :target: https://youtu.be/0bvNRb1Mimw
+
 The demo gameplay above runs on LilyGo's
 `T-Display-S3 <https://www.lilygo.cc/products/t-display-s3>`_ hardware
 with an external I2S DAC.
@@ -95,7 +95,7 @@ Credits
 -------
 Doom is released by ID software in 1999 under the GNU GPL.
 
-PrBoom is a modification of this code; its authors are credited in 
+PrBoom is a modification of this code; its authors are credited in
 the ``components/prboom/AUTHORS`` file.
 
 The ESP32 modifications are done by Espressif and licensed under the
