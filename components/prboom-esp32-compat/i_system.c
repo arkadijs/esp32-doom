@@ -87,7 +87,7 @@ int realtime=0;
 
 void I_uSleep(unsigned long usecs)
 {
-	vTaskDelay(usecs/1000);
+    vTaskDelay(pdMS_TO_TICKS(usecs / 1000));
 }
 
 static unsigned long getMsTicks() {
