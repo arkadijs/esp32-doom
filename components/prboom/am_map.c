@@ -222,7 +222,6 @@ static fixed_t  max_h;          // max_y-min_y
 static fixed_t  min_w;
 static fixed_t  min_h;
 
-
 static fixed_t  min_scale_mtof; // used to tell when to stop zooming out
 static fixed_t  max_scale_mtof; // used to tell when to stop zooming in
 
@@ -411,7 +410,6 @@ static void AM_changeWindowLoc(void)
   m_x2 = m_x + m_w;
   m_y2 = m_y + m_h;
 }
-
 
 //
 // AM_initVariables()
@@ -860,14 +858,12 @@ static boolean AM_clipMline
   int   dx;
   int   dy;
 
-
 #define DOOUTCODE(oc, mx, my) \
   (oc) = 0; \
   if ((my) < 0) (oc) |= TOP; \
   else if ((my) >= f_h) (oc) |= BOTTOM; \
   if ((mx) < 0) (oc) |= LEFT; \
   else if ((mx) >= f_w) (oc) |= RIGHT;
-
 
   // do trivial rejects and outcodes
   if (ml->a.y > m_y2)
@@ -1423,7 +1419,7 @@ static void AM_drawThings(void)
       //jff 1/5/98 case over doomednum of thing being drawn
       if (mapcolor_rkey || mapcolor_ykey || mapcolor_bkey)
       {
-        switch(t->info->doomednum)
+        switch(P_MobjInfo(t)->doomednum)
         {
           //jff 1/5/98 treat keys special
           case 38: case 13: //jff  red key

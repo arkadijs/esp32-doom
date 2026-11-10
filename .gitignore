@@ -3,3 +3,14 @@ managed_components/
 sdkconfig.old
 *.o
 components/prboom/native/doom
+
+/findings/
+/progress/
+/AGENTS-prompts.md*
+/tools/test*
+/.envrc
+__pycache__/
+*.pyc
+*.wad
+*.whd
+*.lmp

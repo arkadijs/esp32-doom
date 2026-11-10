@@ -1373,15 +1373,6 @@ void D_BuildBEXTables(void)
    deh_spritenames[NUMSPRITES] = NULL;
 
 //Disabled - JD
-#if 0
-   for(i = 1; i < NUMMUSIC; i++)
-      deh_musicnames[i] = strdup(S_music[i].name);
-   deh_musicnames[0] = deh_musicnames[NUMMUSIC] = NULL;
-
-   for(i = 1; i < NUMSFX; i++)
-      deh_soundnames[i] = strdup(S_sfx[i].name);
-   deh_soundnames[0] = deh_soundnames[NUMSFX] = NULL;
-#endif
 }
 
 // ====================================================================
@@ -1538,7 +1529,8 @@ static void deh_procBexCodePointers(DEHFILE *fpin, FILE* fpout, char *line)
   boolean found; // know if we found this one during lookup or not
 
   // Ty 05/16/98 - initialize it to something, dummy!
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // for this one, we just read 'em until we hit a blank line
   while (!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
@@ -1700,7 +1692,8 @@ static void deh_procThing(DEHFILE *fpin, FILE* fpout, char *line)
   int ix;
   char *strval;
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   if (fpout) fprintf(fpout,"Thing line: '%s'\n",inbuffer);
 
   // killough 8/98: allow hex numbers in input:
@@ -1827,7 +1820,8 @@ static void deh_procFrame(DEHFILE *fpin, FILE* fpout, char *line)
   uint_64_t value;      // All deh values are ints or longs
   int indexnum;
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // killough 8/98: allow hex numbers in input:
   sscanf(inbuffer,"%s %i",key, &indexnum);
@@ -1908,7 +1902,8 @@ static void deh_procPointer(DEHFILE *fpin, FILE* fpout, char *line) // done
   int indexnum;
   int i; // looper
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   // NOTE: different format from normal
 
   // killough 8/98: allow hex numbers in input, fix error case:
@@ -1985,7 +1980,8 @@ static void deh_procSounds(DEHFILE *fpin, FILE* fpout, char *line)
   uint_64_t value;      // All deh values are ints or longs
   int indexnum;
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // killough 8/98: allow hex numbers in input:
   sscanf(inbuffer,"%s %i",key, &indexnum);
@@ -2053,7 +2049,8 @@ static void deh_procAmmo(DEHFILE *fpin, FILE* fpout, char *line)
   uint_64_t value;      // All deh values are ints or longs
   int indexnum;
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // killough 8/98: allow hex numbers in input:
   sscanf(inbuffer,"%s %i",key, &indexnum);
@@ -2099,7 +2096,8 @@ static void deh_procWeapon(DEHFILE *fpin, FILE* fpout, char *line)
   uint_64_t value;      // All deh values are ints or longs
   int indexnum;
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // killough 8/98: allow hex numbers in input:
   sscanf(inbuffer,"%s %i",key, &indexnum);
@@ -2159,7 +2157,8 @@ static void deh_procSprite(DEHFILE *fpin, FILE* fpout, char *line) // Not suppor
   // Too little is known about what this is supposed to do, and
   // there are better ways of handling sprite renaming.  Not supported.
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // killough 8/98: allow hex numbers in input:
   sscanf(inbuffer,"%s %i",key, &indexnum);
@@ -2202,7 +2201,8 @@ static void deh_procPars(DEHFILE *fpin, FILE* fpout, char *line) // extension
   // is being changed.  Error checking is done based on current fixed
   // array sizes of[4][10] and [32]
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
   // killough 8/98: allow hex numbers in input:
   sscanf(inbuffer,"%s %i",key, &indexnum);
@@ -2282,7 +2282,8 @@ static void deh_procCheat(DEHFILE *fpin, FILE* fpout, char *line) // done
 
   if (fpout) fprintf(fpout,"Processing Cheat: %s\n",line);
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   while (!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
     {
       if (!dehfgets(inbuffer, sizeof(inbuffer), fpin)) break;
@@ -2317,17 +2318,6 @@ static void deh_procCheat(DEHFILE *fpin, FILE* fpout, char *line) // done
                 // Ty 03/16/98 - change to use a strdup and orphan the original
                 // Also has the advantage of allowing length changes.
                 // strncpy(cheat[iy].cheat,p,strlen(cheat[iy].cheat));
-#if 0
-                {    // killough 9/12/98: disable cheats which are prefixes of this one
-                  int i;
-                  for (i=0; cheat[i].cheat; i++)
-                    if (cheat[i].when & not_deh &&
-                        !strncasecmp(cheat[i].cheat,
-                                     cheat[iy].cheat,
-                                     strlen(cheat[i].cheat)) && i != iy)
-          cheat[i].deh_modified = true;
-                }
-#endif
                 cheat[iy].cheat = strdup(p);
                 if (fpout) fprintf(fpout,
                                    "Assigned new cheat '%s' to cheat '%s'at index %d\n",
@@ -2353,7 +2343,8 @@ static void deh_procMisc(DEHFILE *fpin, FILE* fpout, char *line) // done
   char inbuffer[DEH_BUFFERMAX];
   uint_64_t value;      // All deh values are ints or longs
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   while (!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
     {
       if (!dehfgets(inbuffer, sizeof(inbuffer), fpin)) break;
@@ -2570,7 +2561,8 @@ static void deh_procError(DEHFILE *fpin, FILE* fpout, char *line)
 {
   char inbuffer[DEH_BUFFERMAX];
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   if (fpout) fprintf(fpout,"Unmatched Block: '%s'\n",inbuffer);
   return;
 }
@@ -2600,7 +2592,8 @@ static void deh_procStrings(DEHFILE *fpin, FILE* fpout, char *line)
   if (!holdstring) holdstring = malloc(maxstrlen*sizeof(*holdstring));
 
   *holdstring = '\0';  // empty string to start with
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   // Ty 04/24/98 - have to allow inbuffer to start with a blank for
   // the continuations of C1TEXT etc.
   while (!dehfeof(fpin) && *inbuffer)  /* && (*inbuffer != ' ') */
@@ -2736,7 +2729,8 @@ static void deh_procHelperThing(DEHFILE *fpin, FILE *fpout, char *line)
   char inbuffer[DEH_BUFFERMAX];
   uint_64_t value;      // All deh values are ints or longs
 
-  strncpy(inbuffer,line,DEH_BUFFERMAX);
+  strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
   while (!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
   {
       if (!dehfgets(inbuffer, sizeof(inbuffer), fpin)) break;
@@ -2777,7 +2771,8 @@ static void deh_procBexSprites(DEHFILE *fpin, FILE *fpout, char *line)
    if(fpout)
       fprintf(fpout,"Processing sprite name substitution\n");
    
-   strncpy(inbuffer,line,DEH_BUFFERMAX);
+   strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
    while(!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
    {
@@ -2835,7 +2830,8 @@ static void deh_procBexSounds(DEHFILE *fpin, FILE *fpout, char *line)
    if(fpout)
       fprintf(fpout,"Processing sound name substitution\n");
    
-   strncpy(inbuffer,line,DEH_BUFFERMAX);
+   strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
    while(!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
    {
@@ -2894,7 +2890,8 @@ static void deh_procBexMusic(DEHFILE *fpin, FILE *fpout, char *line)
    if(fpout)
       fprintf(fpout,"Processing music name substitution\n");
    
-   strncpy(inbuffer,line,DEH_BUFFERMAX);
+   strncpy(inbuffer,line,DEH_BUFFERMAX - 1);
+  inbuffer[DEH_BUFFERMAX - 1] = 0;
 
    while(!dehfeof(fpin) && *inbuffer && (*inbuffer != ' '))
    {

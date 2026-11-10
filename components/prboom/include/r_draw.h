@@ -134,6 +134,10 @@ extern byte playernumtotrans[MAXPLAYERS]; // CPhipps - what translation table fo
 extern byte       *translationtables;
 
 typedef void (*R_DrawColumn_f)(draw_column_vars_t *dcvars);
+R_DrawColumn_f R_GetWallDrawColumnFunc(void);
+R_DrawColumn_f R_GetMaskedDrawColumnFunc(enum draw_filter_type_e filter,
+                                        enum draw_filter_type_e filterz);
+void R_RebaseFrameBuffer(void);
 R_DrawColumn_f R_GetDrawColumnFunc(enum column_pipeline_e type,
                                    enum draw_filter_type_e filter,
                                    enum draw_filter_type_e filterz);

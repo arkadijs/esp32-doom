@@ -43,6 +43,7 @@
 void P_SetupLevel(int episode, int map, int playermask, skill_t skill);
 void P_Init(void);               /* Called by startup code. */
 
+/* NULL denotes an implicit all-zero matrix; LOS geometry is still checked. */
 extern const byte *rejectmatrix;   /* for fast sight rejection -  cph - const* */
 
 /* killough 3/1/98: change blockmap from "short" to "long" offsets: */

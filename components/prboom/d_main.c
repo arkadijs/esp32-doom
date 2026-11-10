@@ -35,7 +35,6 @@
  *-----------------------------------------------------------------------------
  */
 
-
 #ifdef _MSC_VER
 #define    F_OK    0    /* Check for file existence */
 #define    W_OK    2    /* Check for write permission */
@@ -218,7 +217,13 @@ void D_Display (void)
     return;
 
   // save the current screen if about to wipe
-  if ((wipe = gamestate != wipegamestate) && (V_GetMode() != VID_MODEGL))
+  wipe = gamestate != wipegamestate;
+  // Only fully redrawn 3D gameplay can alternate retained framebuffers.
+  // Wipes, menus and other incremental screens keep their stable drawing target.
+  I_SetFrameSwapAllowed(!wipe && gamestate==GS_LEVEL && gametic!=basetic &&
+      !menuactive && !paused && !inhelpscreens && !(automapmode & am_active) &&
+      !setsizeneeded && V_GetMode()==VID_MODE8);
+  if (wipe && (V_GetMode() != VID_MODEGL))
     wipe_StartScreen();
 
   if (gamestate != GS_LEVEL) { // Not a level
@@ -540,8 +545,15 @@ void D_DoAdvanceDemo(void)
   if (netgame && !demoplayback) {
     demosequence = 0;
   } else
-   if (!demostates[++demosequence][gamemode].func)
-    demosequence = 0;
+  {
+    // Resource-only map subsets omit the original game's demo recordings.
+    // Continue through the title/credit pages when a demo lump is absent.
+    do {
+      if (!demostates[++demosequence][gamemode].func)
+        demosequence = 0;
+    } while (demostates[demosequence][gamemode].func == G_DeferedPlayDemo &&
+             W_CheckNumForName(demostates[demosequence][gamemode].name) < 0);
+  }
   demostates[demosequence][gamemode].func
     (demostates[demosequence][gamemode].name);
 }
@@ -600,8 +612,6 @@ static const char *D_dehout(void)
   return (p && ++p < myargc ? myargv[p] : NULL);
 }
 
-
-
 //
 // CheckIWAD
 //
@@ -642,7 +652,6 @@ static void CheckIWAD(const char *iwadname,GameMode_t *gmode,boolean *hassec)
 //          I_Error("CheckIWAD: failed to read directory %s",iwadname);
 		I_Lseek(fd, header.infotableofs, SEEK_SET);
 		I_Read(fd, fileinfo, sizeof(filelump_t)*length);
-
 
         // scan directory for levelname lumps
         while (length--)
@@ -687,7 +696,8 @@ static void CheckIWAD(const char *iwadname,GameMode_t *gmode,boolean *hassec)
 
     *gmode = indetermined;
     *hassec = false;
-    if (cm>=30)
+    // Explicit opt-in for host-generated map subsets; do not invent map markers.
+    if (cm>=30 || (cm>0 && M_CheckParm("-partial-iwad")))
     {
       *gmode = commercial;
       *hassec = sc>=2;
@@ -703,8 +713,6 @@ static void CheckIWAD(const char *iwadname,GameMode_t *gmode,boolean *hassec)
 //  else // error from access call
 //    I_Error("CheckIWAD: IWAD %s not readable", iwadname);
 }
-
-
 
 // NormalizeSlashes
 //
@@ -740,20 +748,6 @@ static const char *FindIWADFile(void)
 {
   const char *hardcodedIWad="doom2.wad";
   return hardcodedIWad;
-#if 0
-  char *iwad=malloc(strlen(hardcodedIWad)+1);
-  strcpy(iwad, hardcodedIWad);
-  int   i;
-
-  i = M_CheckParm("-iwad");
-  if (i && (++i < myargc)) {
-    iwad = I_FindFile(myargv[i], ".wad");
-  } else {
-    for (i=0; !iwad && i<nstandard_iwads; i++)
-      iwad = I_FindFile(standard_iwads[i], ".wad");
-  }
-  return iwad;
-#endif
 }
 
 //
@@ -811,19 +805,6 @@ static void IdentifyVersion (void)
 
   iwad = FindIWADFile();
 
-#if (0)
-  // proff 11/99: used for debugging
-  {
-    FILE *f;
-    f=fopen("levelinfo.txt","w");
-    if (f)
-    {
-      fprintf(f,"%s\n",iwad);
-      fclose(f);
-    }
-  }
-#endif
-
   if (iwad && *iwad)
   {
     //jff 9/3/98 use logical output routine
@@ -862,8 +843,6 @@ static void IdentifyVersion (void)
   else
     I_Error("IdentifyVersion: IWAD not found\n");
 }
-
-
 
 // killough 5/3/98: old code removed
 //
@@ -1181,6 +1160,8 @@ static void D_DoomMainSetup(void)
 
   lprintf(LO_INFO,"M_LoadDefaults: Load system defaults.\n");
   M_LoadDefaults();              // load before initing other systems
+  // Register moving geometry with interpolation enabled from level setup.
+  if(M_CheckParm("-uncapped")) movement_smooth=true;
 
   // figgi 09/18/00-- added switch to force classic bsp nodes
   if (M_CheckParm ("-forceoldbsp"))

@@ -128,7 +128,6 @@ boolean PIT_StompThing (mobj_t* thing)
   return true;
   }
 
-
 /*
  * killough 8/28/98:
  *
@@ -327,7 +326,6 @@ boolean P_TeleportMove (mobj_t* thing,fixed_t x,fixed_t y, boolean boss)
   return true;
   }
 
-
 //
 // MOVEMENT ITERATOR FUNCTIONS
 //
@@ -365,7 +363,6 @@ boolean PIT_CrossLine (line_t* ld)
         return(false);  // line blocks trajectory                   //   ^
   return(true); // line doesn't block trajectory                    //   |
   }                                                                 // phares
-
 
 /* killough 8/1/98: used to test intersection between thing and line
  * assuming NO movement occurs -- used to avoid sticky situations.
@@ -532,14 +529,14 @@ static boolean PIT_CheckThing(mobj_t *thing) // killough 3/26/98: make static
       // A flying skull is smacking something.
       // Determine damage amount, and the skull comes to a dead stop.
 
-      int damage = ((P_Random(pr_skullfly)%8)+1)*tmthing->info->damage;
+      int damage = ((P_Random(pr_skullfly)%8)+1)*P_MobjInfo(tmthing)->damage;
 
       P_DamageMobj (thing, tmthing, tmthing, damage);
 
       tmthing->flags &= ~MF_SKULLFLY;
       tmthing->momx = tmthing->momy = tmthing->momz = 0;
 
-      P_SetMobjState (tmthing, tmthing->info->spawnstate);
+      P_SetMobjState (tmthing, P_MobjInfo(tmthing)->spawnstate);
 
       return false;   // stop moving
     }
@@ -593,7 +590,7 @@ static boolean PIT_CheckThing(mobj_t *thing) // killough 3/26/98: make static
 
       // damage / explode
 
-      damage = ((P_Random(pr_damage)%8)+1)*tmthing->info->damage;
+      damage = ((P_Random(pr_damage)%8)+1)*P_MobjInfo(tmthing)->damage;
       P_DamageMobj (thing, tmthing, tmthing->target, damage);
 
       // don't traverse any more
@@ -750,7 +747,6 @@ boolean P_CheckPosition (mobj_t* thing,fixed_t x,fixed_t y)
   yl = (tmbbox[BOXBOTTOM] - bmaporgy - MAXRADIUS)>>MAPBLOCKSHIFT;
   yh = (tmbbox[BOXTOP] - bmaporgy + MAXRADIUS)>>MAPBLOCKSHIFT;
 
-
   for (bx=xl ; bx<=xh ; bx++)
     for (by=yl ; by<=yh ; by++)
       if (!P_BlockThingsIterator(bx,by,PIT_CheckThing))
@@ -770,7 +766,6 @@ boolean P_CheckPosition (mobj_t* thing,fixed_t x,fixed_t y)
 
   return true;
   }
-
 
 //
 // P_TryMove
@@ -1057,7 +1052,6 @@ boolean P_ThingHeightClip (mobj_t* thing)
   return thing->ceilingz - thing->floorz >= thing->height;
 }
 
-
 //
 // SLIDE MOVE
 // Allows the player to slide along any angled walls.
@@ -1069,7 +1063,6 @@ static line_t*   bestslideline;
 static mobj_t*   slidemo;
 static fixed_t   tmxmove;
 static fixed_t   tmymove;
-
 
 //
 // P_HitSlideLine
@@ -1186,7 +1179,6 @@ void P_HitSlideLine (line_t* ld)
     }                                                               // phares
   }
 
-
 //
 // PTR_SlideTraverse
 //
@@ -1238,7 +1230,6 @@ isblocking:
 
   return false; // stop
   }
-
 
 //
 // P_SlideMove
@@ -1380,7 +1371,6 @@ static fixed_t   aimslope;
 static fixed_t  topslope;
 static fixed_t  bottomslope;
 
-
 //
 // PTR_AimTraverse
 // Sets linetaget and aimslope when a target is aimed at.
@@ -1473,7 +1463,6 @@ boolean PTR_AimTraverse (intercept_t* in)
 
   return false;   // don't go any farther
   }
-
 
 //
 // PTR_ShootTraverse
@@ -1593,7 +1582,6 @@ boolean PTR_ShootTraverse (intercept_t* in)
   return false;
   }
 
-
 //
 // P_AimLineAttack
 //
@@ -1628,7 +1616,6 @@ fixed_t P_AimLineAttack(mobj_t* t1,angle_t angle,fixed_t distance, uint_64_t mas
   return 0;
   }
 
-
 //
 // P_LineAttack
 // If damage == 0, it is just a test trace
@@ -1656,7 +1643,6 @@ void P_LineAttack
 
   P_PathTraverse(t1->x,t1->y,x2,y2,PT_ADDLINES|PT_ADDTHINGS,PTR_ShootTraverse);
   }
-
 
 //
 // USE LINES
@@ -1755,14 +1741,12 @@ void P_UseLines (player_t*  player)
       S_StartSound (usething, sfx_noway);
   }
 
-
 //
 // RADIUS ATTACK
 //
 
 static mobj_t *bombsource, *bombspot;
 static int bombdamage;
-
 
 //
 // PIT_RadiusAttack
@@ -1815,7 +1799,6 @@ boolean PIT_RadiusAttack (mobj_t* thing)
   return true;
   }
 
-
 //
 // P_RadiusAttack
 // Source is the creature that caused the explosion at spot.
@@ -1845,8 +1828,6 @@ void P_RadiusAttack(mobj_t* spot,mobj_t* source,int damage)
     for (x=xl ; x<=xh ; x++)
       P_BlockThingsIterator (x, y, PIT_RadiusAttack );
   }
-
-
 
 //
 // SECTOR HEIGHT CHANGING
@@ -1933,7 +1914,6 @@ boolean PIT_ChangeSector (mobj_t* thing)
   return true;
   }
 
-
 //
 // P_ChangeSector
 //
@@ -2002,7 +1982,6 @@ boolean P_CheckSector(sector_t* sector,boolean crunch)
   return nofit;
   }
 
-
 // CPhipps -
 // Use block memory allocator here
 
@@ -2069,7 +2048,6 @@ msecnode_t* P_AddSecnode(sector_t* s, mobj_t* thing, msecnode_t* nextnode)
   return(node);
   }
 
-
 // P_DelSecnode() deletes a sector node from the list of
 // sectors this object appears in. Returns a pointer to the next node
 // on the linked list, or NULL.
@@ -2123,7 +2101,6 @@ void P_DelSeclist(msecnode_t* node)
     node = P_DelSecnode(node);
   }
 
-
 // phares 3/14/98
 //
 // PIT_GetSectors
@@ -2166,7 +2143,6 @@ boolean PIT_GetSectors(line_t* ld)
 
   return true;
   }
-
 
 // phares 3/14/98
 //

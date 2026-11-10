@@ -28,7 +28,7 @@
 void doom_task(void *pvParameters)
 {
     char const *argv[] = {
-        "doom", "-cout", "ICWEFDA"
+        "doom", "-cout", "ICWEFA", "-partial-iwad", "-uncapped"
     };
     doom_main(sizeof(argv)/sizeof(argv[0]), argv);
 }
@@ -40,5 +40,6 @@ void app_main()
 #ifdef DOOM_USB_HOST
     usb_init();
 #endif
-    xTaskCreatePinnedToCore(&doom_task, "doom", 22480, NULL, 5, NULL, 0);
+    BaseType_t created=xTaskCreatePinnedToCore(&doom_task, "doom", 22480, NULL, 5, NULL, 0);
+    configASSERT(created==pdPASS);
 }

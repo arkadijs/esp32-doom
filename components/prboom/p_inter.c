@@ -433,7 +433,6 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
         player->message = s_GOTMEDIKIT; // Ty 03/22/98 - externalized
       break;
 
-
       // power ups
     case SPR_PINV:
       if (!P_GivePower (player, pw_invulnerability))
@@ -693,10 +692,10 @@ static void P_KillMobj(mobj_t *source, mobj_t *target)
         AM_Stop();    // don't die in auto map; switch view prior to dying
     }
 
-  if (target->health < -target->info->spawnhealth && target->info->xdeathstate)
-    P_SetMobjState (target, target->info->xdeathstate);
+  if (target->health < -P_MobjInfo(target)->spawnhealth && P_MobjInfo(target)->xdeathstate)
+    P_SetMobjState (target, P_MobjInfo(target)->xdeathstate);
   else
-    P_SetMobjState (target, target->info->deathstate);
+    P_SetMobjState (target, P_MobjInfo(target)->deathstate);
 
   target->tics -= P_Random(pr_killtics)&3;
 
@@ -772,7 +771,7 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
       unsigned ang = R_PointToAngle2 (inflictor->x, inflictor->y,
                                       target->x,    target->y);
 
-      fixed_t thrust = damage*(FRACUNIT>>3)*100/target->info->mass;
+      fixed_t thrust = damage*(FRACUNIT>>3)*100/P_MobjInfo(target)->mass;
 
       // make fall forwards sometimes
       if ( damage < 40 && damage > target->health
@@ -853,7 +852,7 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
        * This will slightly increase the chances that enemies will choose to
        * "finish it off", but its main purpose is to alert friends of danger.
        */
-      if (target->health*2 < target->info->spawnhealth)
+      if (target->health*2 < P_MobjInfo(target)->spawnhealth)
   {
     thinker_t *cap = &thinkerclasscap[target->flags & MF_FRIEND ?
              th_friends : th_enemies];
@@ -864,14 +863,14 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
   }
     }
 
-  if (P_Random (pr_painchance) < target->info->painchance &&
+  if (P_Random (pr_painchance) < P_MobjInfo(target)->painchance &&
       !(target->flags & MF_SKULLFLY)) { //killough 11/98: see below
     if (mbf_features)
       justhit = true;
     else
       target->flags |= MF_JUSTHIT;    // fight back!
 
-    P_SetMobjState(target, target->info->painstate);
+    P_SetMobjState(target, P_MobjInfo(target)->painstate);
   }
 
   target->reactiontime = 0;           // we're awake now...
@@ -900,9 +899,9 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
 
       P_SetTarget(&target->target, source);       // killough 11/98
       target->threshold = BASETHRESHOLD;
-      if (target->state == &states[target->info->spawnstate]
-          && target->info->seestate != S_NULL)
-        P_SetMobjState (target, target->info->seestate);
+      if (P_MobjState(target) == &states[P_MobjInfo(target)->spawnstate]
+          && P_MobjInfo(target)->seestate != S_NULL)
+        P_SetMobjState (target, P_MobjInfo(target)->seestate);
     }
 
   /* killough 11/98: Don't attack a friend, unless hit by that friend.

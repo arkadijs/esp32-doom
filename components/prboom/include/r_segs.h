@@ -39,6 +39,9 @@
 #endif
 
 void R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2);
+#define WALL_DISTANCE_SLOTS 128
+typedef struct {const vertex_t *vertex; fixed_t distance;} wall_distance_entry_t;
+void R_SetWallDistanceCache(wall_distance_entry_t *entries);
 void R_StoreWallRange(const int start, const int stop);
 
 #endif

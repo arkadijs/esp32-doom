@@ -198,10 +198,17 @@ static CONSTFUNC fixed_t FixedDiv(fixed_t a, fixed_t b)
 /* CPhipps - made __inline__ to inline, as specified in the gcc docs
  * Also made const */
 
+#ifdef DOOM_FAST_FIXED_DIV
+#include "m_fixed_fast.h"
+#endif
 inline static CONSTFUNC fixed_t FixedDiv(fixed_t a, fixed_t b)
 {
+#ifdef DOOM_FAST_FIXED_DIV
+  return DoomFixedDivFast(a,b);
+#else
   return ((unsigned)D_abs(a)>>14) >= (unsigned)D_abs(b) ? ((a^b)>>31) ^ INT_MAX :
     (fixed_t)(((int_64_t) a << FRACBITS) / b);
+#endif
 }
 
 #endif /* I386_ASM */

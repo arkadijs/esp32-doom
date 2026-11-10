@@ -41,6 +41,7 @@
 #include "doomtype.h"
 #include "v_video.h"
 #include "r_draw.h"
+#include "r_patch.h"
 #include "d_main.h"
 #include "d_event.h"
 #include "i_video.h"
@@ -49,15 +50,43 @@
 #include "sounds.h"
 #include "w_wad.h"
 #include "st_stuff.h"
+#include "m_menu.h"
+#include "am_map.h"
+#include "r_main.h"
 #include "lprintf.h"
 
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_freertos_hooks.h"
+#include "esp_err.h"
+#include "i2s_dac.h"
+#include "i_sound.h"
+#include "g_game.h"
 
 #include "i80_lcd.h"
 #ifdef DOOM_USB_HOST
 #include "i_usb.h"
 #endif
 
+static byte *screen0;
+static int frame_swap_allowed;
+// Both the observer and Doom execute on core 0. No polling or I/O in the hook.
+#ifdef DOOM_USB_HOST
+#define IDLE0_GRACE_US 100000
+#else
+#define IDLE0_GRACE_US 500000
+#endif
+static volatile unsigned idle0_generation;
+static unsigned idle0_seen;
+static void check_idle0(void);
+static int64_t idle0_seen_at;
+static bool IRAM_ATTR observe_idle0(void)
+{
+    ++idle0_generation;
+    return true;
+}
 
 int use_fullscreen=0;
 int use_doublebuffer=0;
@@ -70,7 +99,6 @@ void I_StartTic (void)
   I_USB_Poll();
 #endif
 }
-
 
 //static void I_UploadNewPalette(int pal)
 //{
@@ -88,27 +116,54 @@ void I_ShutdownGraphics(void)
 //
 void I_UpdateNoBlit (void)
 {
+    check_idle0(); // Also service idle scheduling inside the wipe loop.
 }
 
-
-void I_StartFrame (void)
+static void check_idle0(void)
 {
+    int64_t now=esp_timer_get_time();
+    unsigned generation=idle0_generation;
+    if(generation!=idle0_seen) {
+        idle0_seen=generation;
+        idle0_seen_at=now;
+    } else {
+        int64_t gap=now-idle0_seen_at;
+        if(gap>=IDLE0_GRACE_US) {
+            // Usually completion/tic waits already let IDLE0 run. Only force a
+            // scheduling window when rendering has monopolized this core.
+            vTaskDelay(1);
+            int64_t end=esp_timer_get_time();
+            idle0_seen=idle0_generation;
+            idle0_seen_at=end;
+        }
+    }
 }
 
+void I_StartFrame(void)
+{
+    check_idle0();
+}
 
 int I_StartDisplay(void)
 {
-//	spi_lcd_wait_finish();
+    check_idle0(); // Includes extra displays while waiting for a simulation tic.
     return true;
+}
+
+void I_SetFrameSwapAllowed(int allowed)
+{
+    if(frame_swap_allowed && !allowed)i80_lcd_restore_last(screens[0].data);
+    frame_swap_allowed=allowed;
+}
+
+int I_FrameBufferSwaps(void)
+{
+    return frame_swap_allowed;
 }
 
 void I_EndDisplay(void)
 {
 }
-
-
-
-
 
 //
 // I_FinishUpdate
@@ -116,9 +171,12 @@ void I_EndDisplay(void)
 
 void I_FinishUpdate (void)
 {
-    i80_lcd_send(screens[0].data);
-	//Flip framebuffers
-//	if (scr==screena) screens[0].data=screenb; else screens[0].data=screena;
+
+    byte *next=i80_lcd_send(screens[0].data,frame_swap_allowed);
+    if(next!=screens[0].data) {
+        screens[0].data=screen0=next;
+        R_RebaseFrameBuffer();
+    }
 }
 
 uint16_t lcdpal[256];
@@ -137,15 +195,18 @@ void I_SetPalette (int pal)
 	W_UnlockLumpNum(pplump);
 }
 
-static void *screen0;
-
 void I_PreInitGraphics(void)
 {
 	lprintf(LO_INFO, "preinitgfx");
+    static int idle_registered;
+    if(!idle_registered) {
+        ESP_ERROR_CHECK(esp_register_freertos_idle_hook_for_cpu(observe_idle0,0));
+        idle_registered=1;
+        idle0_seen_at=esp_timer_get_time();
+    }
     screen0 = heap_caps_malloc(SCREENWIDTH*SCREENHEIGHT, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     assert(screen0);
 }
-
 
 // CPhipps -
 // I_SetRes
@@ -191,7 +252,6 @@ void I_InitGraphics(void)
     I_UpdateVideoMode();
   }
 }
-
 
 void I_UpdateVideoMode(void)
 {

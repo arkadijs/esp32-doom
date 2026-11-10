@@ -420,7 +420,7 @@ static void R_DrawVisSprite(vissprite_t *vis, int x1, int x2)
           tranmap = main_tranmap;       // killough 4/11/98
         }
       else
-        colfunc = R_GetDrawColumnFunc(RDC_PIPELINE_STANDARD, filter, filterz); // killough 3/14/98, 4/11/98
+        colfunc = R_GetMaskedDrawColumnFunc(filter,filterz); // killough 3/14/98, 4/11/98
 
 // proff 11/06/98: Changed for high-res
   dcvars.iscale = FixedDiv (FRACUNIT, vis->scale);
@@ -433,17 +433,19 @@ static void R_DrawVisSprite(vissprite_t *vis, int x1, int x2)
 
   for (dcvars.x=vis->x1 ; dcvars.x<=vis->x2 ; dcvars.x++, frac += vis->xiscale)
     {
+      if(mceilingclip[dcvars.x]>=mfloorclip[dcvars.x]-1) {
+        continue;
+      }
       texturecolumn = frac>>FRACBITS;
       dcvars.texu = frac;
 
-      R_DrawMaskedColumn(
-        patch,
-        colfunc,
-        &dcvars,
-        R_GetPatchColumnClamped(patch, texturecolumn),
-        R_GetPatchColumnClamped(patch, texturecolumn-1),
-        R_GetPatchColumnClamped(patch, texturecolumn+1)
-      );
+      const rcolumn_t *column=R_GetPatchColumnClamped(patch,texturecolumn);
+      const rcolumn_t *previous=column,*next=column;
+      if(filter!=RDRAW_FILTER_POINT) {
+        previous=R_GetPatchColumnClamped(patch,texturecolumn-1);
+        next=R_GetPatchColumnClamped(patch,texturecolumn+1);
+      }
+      R_DrawMaskedColumn(patch,colfunc,&dcvars,column,previous,next);
     }
   R_UnlockPatchNum(vis->patch+firstspritelump); // cph - release lump
 }
@@ -918,7 +920,19 @@ void R_SortVisSprites (void)
 // R_DrawSprite
 //
 
-static void R_DrawSprite (vissprite_t* spr)
+// Full drawsegs live in PSRAM. Most are rejected using only their screen range.
+// The compact index borrows internal task stack only during the masked pass.
+// It preserves ascending order here and reverse traversal during clipping.
+#define SPRITE_CLIP_CACHE_CAPACITY 1024
+typedef struct {
+  drawseg_t *seg;
+  uint16_t x1, x2;
+} sprite_clipseg_t;
+_Static_assert(MAX_SCREENWIDTH<=UINT16_MAX,"clip range width");
+
+static void R_DrawSprite (vissprite_t* spr
+    , const sprite_clipseg_t *clip_index, int clip_count
+)
 {
   drawseg_t *ds;
   int     clipbot[MAX_SCREENWIDTH]; // killough 2/8/98: // dropoff overflow
@@ -941,11 +955,18 @@ static void R_DrawSprite (vissprite_t* spr)
 
   //    for (ds=ds_p-1 ; ds >= drawsegs ; ds--)    old buggy code
 
-  for (ds=ds_p ; ds-- > drawsegs ; )  // new -- killough
-    {      // determine if the drawseg obscures the sprite
-      if (ds->x1 > spr->x2 || ds->x2 < spr->x1 ||
-          (!ds->silhouette && !ds->maskedtexturecol))
-        continue;      // does not cover sprite
+  int remaining=clip_index ? clip_count : ds_p-drawsegs;
+  while (remaining) {
+    int index=--remaining;
+    if (clip_index) {
+      if (clip_index[index].x1>spr->x2 || clip_index[index].x2<spr->x1)
+        continue;
+      ds=clip_index[index].seg;
+    } else {
+      ds=&drawsegs[index];
+      if (ds->x1>spr->x2 || ds->x2<spr->x1 ||
+          (!ds->silhouette && !ds->maskedtexturecol)) continue;
+    }
 
       r1 = ds->x1 < spr->x1 ? spr->x1 : ds->x1;
       r2 = ds->x2 > spr->x2 ? spr->x2 : ds->x2;
@@ -1029,12 +1050,17 @@ static void R_DrawSprite (vissprite_t* spr)
   // all clipping has been performed, so draw the sprite
   // check for unclipped columns
 
+  int visible=0;
   for (x = spr->x1 ; x<=spr->x2 ; x++) {
     if (clipbot[x] == -2)
       clipbot[x] = viewheight;
 
     if (cliptop[x] == -2)
       cliptop[x] = -1;
+    if(cliptop[x]<clipbot[x]-1)visible=1;
+  }
+  if(!visible) {
+    return;
   }
 
   mfloorclip = clipbot;
@@ -1055,9 +1081,23 @@ void R_DrawMasked(void)
 
   // draw all vissprites back to front
 
+  sprite_clipseg_t clip_cache[SPRITE_CLIP_CACHE_CAPACITY];
+  const sprite_clipseg_t *clip_index=clip_cache;
+  int clip_count=0;
+  if (num_vissprite) for (ds=drawsegs;ds<ds_p;++ds) {
+    if (!ds->silhouette && !ds->maskedtexturecol) continue;
+    if (clip_count==SPRITE_CLIP_CACHE_CAPACITY) {
+      // Exact legacy fallback: capacity never removes geometry or sprites.
+      clip_index=NULL;
+      break;
+    }
+    clip_cache[clip_count++]=(sprite_clipseg_t){ds,ds->x1,ds->x2};
+  }
   rendered_vissprites = num_vissprite;
   for (i = num_vissprite ;--i>=0; )
-    R_DrawSprite(vissprite_ptrs[i]);         // killough
+    R_DrawSprite(vissprite_ptrs[i]
+        ,clip_index,clip_count
+    );         // killough
 
   // render any remaining masked mid textures
 

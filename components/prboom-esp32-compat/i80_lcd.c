@@ -63,10 +63,13 @@ typedef struct {
     esp_lcd_panel_io_handle_t panel_io_handle;
 
     SemaphoreHandle_t sem;
+    SemaphoreHandle_t available;
 
     byte *fb;
     void *trans_buf;
-    unsigned int next_line;
+    volatile unsigned int next_line;
+    uint16_t palette[256];
+    int has_frame;
 } lcd_context_t;
 
 static lcd_context_t lcd_context;
@@ -76,47 +79,66 @@ static void fb_to_rgb16(void *fb_in, uint16_t *rgb16_out, int size) {
     uint32_t *fb32 = (uint32_t*)fb_in;
     for (int i = 0, j = 0; i < size; i++, j += 4) {
         uint32_t w = fb32[i];
-        rgb16_out[j+0] = lcdpal[ w       &0xff];
-        rgb16_out[j+1] = lcdpal[(w >>  8)&0xff];
-        rgb16_out[j+2] = lcdpal[(w >> 16)&0xff];
-        rgb16_out[j+3] = lcdpal[(w >> 24)&0xff];
+        rgb16_out[j+0] = lcd_context.palette[ w       &0xff];
+        rgb16_out[j+1] = lcd_context.palette[(w >>  8)&0xff];
+        rgb16_out[j+2] = lcd_context.palette[(w >> 16)&0xff];
+        rgb16_out[j+3] = lcd_context.palette[(w >> 24)&0xff];
     }
 }
 
-void i80_lcd_send(byte *screen) {
-    memcpy(lcd_context.fb, screen, LCD_H_RES * LCD_V_RES);
+byte *i80_lcd_send(byte *screen, int swap) {
+    // The previous frame's last DMA transfer must finish before exchanging roles
+    // or modifying the LCD's source frame/palette/transfer buffer.
+    ESP_ERROR_CHECK(xSemaphoreTake(lcd_context.available, pdMS_TO_TICKS(2000)) == pdTRUE
+                    ? ESP_OK : ESP_ERR_TIMEOUT);
+    byte *next=screen;
+    if(swap) {
+        assert(screen!=lcd_context.fb);
+        next=lcd_context.fb;
+        lcd_context.fb=screen;
+    } else {
+        assert(screen!=lcd_context.fb);
+        memcpy(lcd_context.fb, screen, LCD_H_RES*LCD_V_RES);
+    }
+    memcpy(lcd_context.palette,lcdpal,sizeof(lcd_context.palette));
+    lcd_context.next_line=0;
+    lcd_context.has_frame=1;
     xSemaphoreGive(lcd_context.sem);
-    vTaskDelay(1); // TODO for now give idle task a chance to reset watchdog
+    return next;
+}
+
+void i80_lcd_restore_last(byte *screen) {
+    // Used once on leaving swap-eligible gameplay. LCD and CPU only read this
+    // source; the destination is exclusively owned by the renderer.
+    if(lcd_context.has_frame && screen!=lcd_context.fb) {
+        memcpy(screen,lcd_context.fb,LCD_H_RES*LCD_V_RES);
+    }
 }
 
 void IRAM_ATTR lcd_task(void *arg) {
-    while (1) {
-        xSemaphoreTake(lcd_context.sem, portMAX_DELAY);
-
-        if (lcd_context.next_line >= LCD_V_RES) {
-            lcd_context.next_line = 0;
-        }
-
-        fb_to_rgb16(lcd_context.fb + lcd_context.next_line * LCD_H_RES,
-            lcd_context.trans_buf, LCD_H_RES * LCD_LINES_PER_TRANS);
-
+    while(1) {
+        xSemaphoreTake(lcd_context.sem,portMAX_DELAY);
+        unsigned row=lcd_context.next_line;
+        assert(row<LCD_V_RES);
+        fb_to_rgb16(lcd_context.fb+row*LCD_H_RES,lcd_context.trans_buf,
+                    LCD_H_RES*LCD_LINES_PER_TRANS);
+        // Publish progress before enqueueing: DMA completion may preempt us.
+        lcd_context.next_line=row+LCD_LINES_PER_TRANS;
         ESP_ERROR_CHECK(esp_lcd_panel_draw_bitmap(lcd_context.panel_handle,
-            0, lcd_context.next_line,
-            LCD_H_RES, lcd_context.next_line + LCD_LINES_PER_TRANS,
-            lcd_context.trans_buf));
-
-        lcd_context.next_line += LCD_LINES_PER_TRANS;
+            0,row,LCD_H_RES,row+LCD_LINES_PER_TRANS,lcd_context.trans_buf));
     }
 }
 
-bool IRAM_ATTR notify_lcd_trans_done(esp_lcd_panel_io_handle_t panel_io_handle, esp_lcd_panel_io_event_data_t *_edata, void *user_ctx) {
-    lcd_context_t *lcd_context = (lcd_context_t*)user_ctx;
-
-    if (lcd_context->next_line > 0 && lcd_context->next_line < LCD_V_RES) {
-        xSemaphoreGive(lcd_context->sem);
+bool IRAM_ATTR notify_lcd_trans_done(esp_lcd_panel_io_handle_t panel_io_handle,
+        esp_lcd_panel_io_event_data_t *_edata, void *user_ctx) {
+    lcd_context_t *ctx=(lcd_context_t*)user_ctx;
+    BaseType_t wake=pdFALSE;
+    if(ctx->next_line<LCD_V_RES) {
+        xSemaphoreGiveFromISR(ctx->sem,&wake);
+    } else {
+        xSemaphoreGiveFromISR(ctx->available,&wake);
     }
-
-    return false; // Whether a high priority task has been waken up by this function
+    return wake==pdTRUE;
 }
 
 void i80_lcd_init(void) {
@@ -200,7 +222,7 @@ void i80_lcd_init(void) {
     fb = heap_caps_aligned_alloc(PSRAM_DATA_ALIGNMENT, LCD_H_RES * LCD_V_RES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     trans_buf = heap_caps_aligned_alloc(PSRAM_DATA_ALIGNMENT, LCD_H_RES * LCD_LINES_PER_TRANS * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 #else
-    fb = heap_caps_malloc(LCD_H_RES * LCD_V_RES, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
+    fb = heap_caps_malloc(LCD_H_RES * LCD_V_RES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     trans_buf = heap_caps_malloc(LCD_H_RES * LCD_LINES_PER_TRANS * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 #endif
     assert(fb);
@@ -209,11 +231,15 @@ void i80_lcd_init(void) {
 
     SemaphoreHandle_t sem = xSemaphoreCreateBinary();
     assert(sem);
+    SemaphoreHandle_t available=xSemaphoreCreateBinary();
+    assert(available);
+    xSemaphoreGive(available);
 
     lcd_context = (lcd_context_t){
         .panel_handle = panel_handle,
         .panel_io_handle = io_handle,
         .sem = sem,
+        .available = available,
         .fb = fb,
         .trans_buf = trans_buf,
         .next_line = 0,

@@ -305,8 +305,8 @@ void P_DropWeapon(player_t *player)
 void A_WeaponReady(player_t *player, pspdef_t *psp)
 {
   // get out of attack state
-  if (player->mo->state == &states[S_PLAY_ATK1]
-      || player->mo->state == &states[S_PLAY_ATK2] )
+  if (P_MobjState(player->mo) == &states[S_PLAY_ATK1]
+      || P_MobjState(player->mo) == &states[S_PLAY_ATK2] )
     P_SetMobjState(player->mo, S_PLAY);
 
   if (player->readyweapon == wp_chainsaw && psp->state == &states[S_SAW])
@@ -441,7 +441,6 @@ void A_Raise(player_t *player, pspdef_t *psp)
 
   P_SetPsprite(player, ps_weapon, newstate);
 }
-
 
 // Weapons now recoil, amount depending on the weapon.              // phares
 //                                                                  //   |

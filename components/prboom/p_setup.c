@@ -79,7 +79,6 @@ line_t   *lines;
 int      numsides;
 side_t   *sides;
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////
 // figgi 08/21/00 -- constants and globals for glBsp support
 #define gNd2            0x32644E67  // figgi -- suppport for new GL_VERT format v2.0
@@ -119,7 +118,6 @@ enum
    ML_GL_NODES     // GL BSP nodes
 };
 ////////////////////////////////////////////////////////////////////////////////////////////
-
 
 // BLOCKMAP
 // Created from axis aligned bounding box
@@ -319,7 +317,6 @@ static void P_LoadVertexes2(int lump, int gllump)
   W_UnlockLumpNum(lump);
 }
 
-
 /*******************************************
  * created  : 08/13/00             *
  * modified : 09/18/00, adapted for PrBoom *
@@ -335,13 +332,11 @@ static int checkGLVertex(int num)
   return num;
 }
 
-
 static float GetDistance(int dx, int dy)
 {
   float fx = (float)(dx)/FRACUNIT, fy = (float)(dy)/FRACUNIT;
   return (float)sqrt(fx*fx + fy*fy);
 }
-
 
 static int GetOffset(vertex_t *v1, vertex_t *v2)
 {
@@ -352,8 +347,6 @@ static int GetOffset(vertex_t *v1, vertex_t *v2)
   r = (int)(sqrt(a*a+b*b) * (float)FRACUNIT);
   return r;
 }
-
-
 
 //
 // P_LoadSegs
@@ -416,8 +409,6 @@ static void P_LoadSegs (int lump)
 
   W_UnlockLumpNum(lump); // cph - release the data
 }
-
-
 
 /*******************************************
  * Name     : P_LoadGLSegs           *
@@ -565,7 +556,6 @@ static void P_LoadSectors (int lump)
   W_UnlockLumpNum(lump); // cph - release the data
 }
 
-
 //
 // P_LoadNodes
 //
@@ -612,7 +602,6 @@ static void P_LoadNodes (int lump)
 
   W_UnlockLumpNum(lump); // cph - release the data
 }
-
 
 /*
  * P_LoadThings
@@ -1011,7 +1000,6 @@ static void P_CreateBlockMap(void)
     by = (y2-yorg)>>blkshift;
     AddBlockLine(blocklists,blockcount,blockdone,by*ncols+bx,i);
 
-
     // For each column, see where the line along its left edge, which
     // it contains, intersects the Linedef i. Add i to each corresponding
     // blocklist.
@@ -1255,6 +1243,13 @@ static void P_LoadReject(int lumpnum, int totallines)
 
   if (length >= required)
     return; // nothing to do
+
+  // An empty matrix permits every sector pair. Keep geometric LOS checks;
+  // vanilla compatibility still needs its original short-lump overrun padding.
+  if(!length && !demo_compatibility) {
+    W_UnlockLumpNum(rejectlump);rejectlump=-1;rejectmatrix=NULL;
+    return;
+  }
 
   // allocate a new block and copy the reject table into it; zero the rest
   // PU_LEVEL => will be freed on level exit
@@ -1565,7 +1560,6 @@ void P_SetupLevel(int episode, int map, int playermask, skill_t skill)
       && !strncasecmp(lumpinfo[i].name, "BEHAVIOR", 8))
     I_Error("P_SetupLevel: %s: Hexen format not supported", lumpname);
 
-#if 1
   // figgi 10/19/00 -- check for gl lumps and load them
   P_GetNodesVersion(lumpnum,gl_lumpnum);
 
@@ -1592,21 +1586,6 @@ void P_SetupLevel(int episode, int map, int playermask, skill_t skill)
     P_LoadNodes(lumpnum + ML_NODES);
     P_LoadSegs(lumpnum + ML_SEGS);
   }
-
-#else
-
-  P_LoadVertexes  (lumpnum+ML_VERTEXES);
-  P_LoadSectors   (lumpnum+ML_SECTORS);
-  P_LoadSideDefs  (lumpnum+ML_SIDEDEFS);             // killough 4/4/98
-  P_LoadLineDefs  (lumpnum+ML_LINEDEFS);             //       |
-  P_LoadSideDefs2 (lumpnum+ML_SIDEDEFS);             //       |
-  P_LoadLineDefs2 (lumpnum+ML_LINEDEFS);             // killough 4/4/98
-  P_LoadBlockMap  (lumpnum+ML_BLOCKMAP);             // killough 3/1/98
-  P_LoadSubsectors(lumpnum+ML_SSECTORS);
-  P_LoadNodes     (lumpnum+ML_NODES);
-  P_LoadSegs      (lumpnum+ML_SEGS);
-
-#endif
 
   // reject loading and underflow padding separated out into new function
   // P_GroupLines modified to return a number the underflow padding needs

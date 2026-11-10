@@ -663,6 +663,31 @@ static R_DrawColumn_f drawcolumnfuncs[VID_MODEMAX][RDRAW_FILTER_MAXFILTERS][RDRA
   },
 };
 
+// Opaque walls have no destination blending: write each lit sample once.
+#define R_DRAWCOLUMN_PIPELINE_BITS 8
+#define R_DRAWCOLUMN_PIPELINE RDC_STANDARD
+#define R_DRAWCOLUMN_FUNCNAME R_DrawDirectWallColumn8
+#define R_DRAWCOLUMN_DIRECT
+#include "r_drawcolumn.inl"
+#undef R_DRAWCOLUMN_DIRECT
+#undef R_DRAWCOLUMN_PIPELINE_BITS
+
+R_DrawColumn_f R_GetWallDrawColumnFunc(void)
+{
+  if (V_GetMode() == VID_MODE8 && drawvars.filterwall == RDRAW_FILTER_POINT &&
+      drawvars.filterz == RDRAW_FILTER_POINT)
+    return R_DrawDirectWallColumn8;
+  return R_GetDrawColumnFunc(RDC_PIPELINE_STANDARD, drawvars.filterwall, drawvars.filterz);
+}
+
+R_DrawColumn_f R_GetMaskedDrawColumnFunc(enum draw_filter_type_e filter,
+                                        enum draw_filter_type_e filterz)
+{
+  if(V_GetMode()==VID_MODE8 && filter==RDRAW_FILTER_POINT && filterz==RDRAW_FILTER_POINT)
+    return R_DrawDirectWallColumn8;
+  return R_GetDrawColumnFunc(RDC_PIPELINE_STANDARD,filter,filterz);
+}
+
 R_DrawColumn_f R_GetDrawColumnFunc(enum column_pipeline_e type,
                                    enum draw_filter_type_e filter,
                                    enum draw_filter_type_e filterz) {
@@ -992,6 +1017,13 @@ void R_DrawSpan(draw_span_vars_t *dsvars) {
 //  of a pixel to draw.
 //
 
+void R_RebaseFrameBuffer(void)
+{
+  drawvars.byte_topleft = screens[0].data + viewwindowy*screens[0].byte_pitch + viewwindowx;
+  drawvars.short_topleft = (unsigned short *)(screens[0].data) + viewwindowy*screens[0].short_pitch + viewwindowx;
+  drawvars.int_topleft = (unsigned int *)(screens[0].data) + viewwindowy*screens[0].int_pitch + viewwindowx;
+}
+
 void R_InitBuffer(int width, int height)
 {
   int i=0;
@@ -1005,9 +1037,7 @@ void R_InitBuffer(int width, int height)
 
   viewwindowy = width==SCREENWIDTH ? 0 : (SCREENHEIGHT-(ST_SCALED_HEIGHT-1)-height)>>1;
 
-  drawvars.byte_topleft = screens[0].data + viewwindowy*screens[0].byte_pitch + viewwindowx;
-  drawvars.short_topleft = (unsigned short *)(screens[0].data) + viewwindowy*screens[0].short_pitch + viewwindowx;
-  drawvars.int_topleft = (unsigned int *)(screens[0].data) + viewwindowy*screens[0].int_pitch + viewwindowx;
+  R_RebaseFrameBuffer();
   drawvars.byte_pitch = screens[0].byte_pitch;
   drawvars.short_pitch = screens[0].short_pitch;
   drawvars.int_pitch = screens[0].int_pitch;

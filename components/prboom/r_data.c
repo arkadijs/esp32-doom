@@ -70,7 +70,6 @@ typedef struct
   short colormap;        // unused in Doom but might be used in Phase 2 Boom
 } PACKEDATTR mappatch_t;
 
-
 typedef struct
 {
   char       name[8];
@@ -100,12 +99,23 @@ int       *texturetranslation;
 // R_GetTextureColumn
 //
 
+static inline int R_WrapTextureColumn(const rpatch_t *patch, int col)
+{
+  // Power-of-two widths wrap negative coordinates with the same final mask.
+  // Other widths retain the original add-width-then-mask behavior.
+  if(col<0 && (unsigned)patch->width!=patch->widthmask+1)
+    do { col+=patch->width; } while(col<0);
+  return col & patch->widthmask;
+}
+
 const byte *R_GetTextureColumn(const rpatch_t *texpatch, int col) {
-  while (col < 0)
-    col += texpatch->width;
-  col &= texpatch->widthmask;
-  
-  return texpatch->columns[col].pixels;
+  return texpatch->columns[R_WrapTextureColumn(texpatch,col)].pixels;
+}
+
+// Optional contiguous pixel cache is pinned by the wall span's texture lock.
+const byte *R_GetWallTextureColumn(const rpatch_t *patch, int col, const byte *pixels) {
+  col=R_WrapTextureColumn(patch,col);
+  return pixels ? pixels+col*patch->height : patch->columns[col].pixels;
 }
 
 //
@@ -408,19 +418,21 @@ int R_ColormapNumForName(const char *name)
 static inline int between(int l,int u,int x)
 { return (l > x ? l : x > u ? u : x); }
 
+// The orientation and sector light contribution is constant across a wall span.
+int R_ColourMapBase(int lightlevel)
+{
+  if(curline) {
+    if(curline->v1->y==curline->v2->y)lightlevel-=1<<LIGHTSEGSHIFT;
+    else if(curline->v1->x==curline->v2->x)lightlevel+=1<<LIGHTSEGSHIFT;
+  }
+  lightlevel+=extralight<<LIGHTSEGSHIFT;
+  return ((256-lightlevel)*2*NUMCOLORMAPS/256)-4;
+}
+
 const lighttable_t* R_ColourMap(int lightlevel, fixed_t spryscale)
 {
   if (fixedcolormap) return fixedcolormap;
   else {
-    if (curline)
-      if (curline->v1->y == curline->v2->y)
-        lightlevel -= 1 << LIGHTSEGSHIFT;
-      else
-        if (curline->v1->x == curline->v2->x)
-          lightlevel += 1 << LIGHTSEGSHIFT;
-
-    lightlevel += extralight << LIGHTSEGSHIFT;
-
     /* cph 2001/11/17 -
      * Work out what colour map to use, remembering to clamp it to the number of
      * colour maps we actually have. This formula is basically the one from the
@@ -433,7 +445,7 @@ const lighttable_t* R_ColourMap(int lightlevel, fixed_t spryscale)
      * against slight light level variations.
      */
     return fullcolormap + between(0,NUMCOLORMAPS-1,
-          ((256-lightlevel)*2*NUMCOLORMAPS/256) - 4
+          R_ColourMapBase(lightlevel)
           - (FixedMul(spryscale,pspriteiscale)/2 >> LIGHTSCALESHIFT)
           )*256;
   }

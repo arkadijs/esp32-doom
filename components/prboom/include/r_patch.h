@@ -28,7 +28,6 @@
  *
  *-----------------------------------------------------------------------------*/
 
-
 #ifndef R_PATCH_H
 #define R_PATCH_H
 
@@ -60,15 +59,18 @@ typedef struct {
   unsigned  widthmask;
     
   unsigned char isNotTileable;
+  unsigned char isFlashComposite; // occupies existing alignment padding
   
   int leftoffset;
   int topoffset;
   
-  // this is the single malloc'ed/free'd array 
-  // for this patch
+  // Zone-managed RAM allocation: complete legacy patch data, or only
+  // column views for a flash composite.
   unsigned char *data;
   
-  // these are pointers into the data array
+  // Legacy pointers address the data array. For a flash composite, only
+  // columns live there; pixels/posts are representative mapped pointers,
+  // not contiguous bulk arrays. Texture drawing uses the column views.
   unsigned char *pixels;
   rcolumn_t *columns;
   rpost_t *posts;
@@ -79,15 +81,14 @@ typedef struct {
   unsigned int locks;
 } rpatch_t;
 
-
 const rpatch_t *R_CachePatchNum(int id);
 void R_UnlockPatchNum(int id);
 #define R_CachePatchName(name) R_CachePatchNum(W_GetNumForName(name))
 #define R_UnlockPatchName(name) R_UnlockPatchNum(W_GetNumForName(name))
 
 const rpatch_t *R_CacheTextureCompositePatchNum(int id);
-void R_UnlockTextureCompositePatchNum(int id);
 
+void R_UnlockTextureCompositePatchNum(int id);
 
 // Size query funcs
 int R_NumPatchWidth(int lump) ;
@@ -95,16 +96,20 @@ int R_NumPatchHeight(int lump);
 #define R_NamePatchWidth(name) R_NumPatchWidth(W_GetNumForName(name))
 #define R_NamePatchHeight(name) R_NumPatchHeight(W_GetNumForName(name))
 
-
 const rcolumn_t *R_GetPatchColumnWrapped(const rpatch_t *patch, int columnIndex);
 const rcolumn_t *R_GetPatchColumnClamped(const rpatch_t *patch, int columnIndex);
-
 
 // returns R_GetPatchColumnWrapped for square, non-holed textures
 // and R_GetPatchColumnClamped otherwise
 const rcolumn_t *R_GetPatchColumn(const rpatch_t *patch, int columnIndex);
 
-
+// TXF1 composites retain RAM column views with mapped read-only pixels/posts.
+void R_InitFlashTextures(void);
+int R_CanUseFlashTextures(void);
+const unsigned char *R_CacheFlashTexturePixels(const rpatch_t *patch);
+void R_BeginFlashTextureFrame(void);
+void R_EndFlashTextureFrame(void);
+int R_LoadFlashTexture(int id, rpatch_t *patch);
 void R_InitPatches();
 void R_FlushAllPatches();
 

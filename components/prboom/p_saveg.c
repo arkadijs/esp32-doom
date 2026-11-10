@@ -37,6 +37,7 @@
 #include "p_spec.h"
 #include "p_tick.h"
 #include "p_saveg.h"
+#include <stdint.h>
 #include "m_random.h"
 #include "am_map.h"
 #include "p_enemy.h"
@@ -100,7 +101,6 @@ void P_UnArchivePlayers (void)
               &states[ (int)players[i].psprites[j].state ];
       }
 }
-
 
 //
 // P_ArchiveWorld
@@ -180,8 +180,6 @@ void P_ArchiveWorld (void)
     }
   save_p = (byte *) put;
 }
-
-
 
 //
 // P_UnArchiveWorld
@@ -303,22 +301,22 @@ void P_ArchiveThinkers (void)
   /* check that enough room is available in savegame buffer
    * - killough 2/14/98
    * cph - use number_of_thinkers saved by P_ThinkerToIndex above
-   * size per object is sizeof(mobj_t) - 2*sizeof(void*) - 4*sizeof(fixed_t) plus
-   * padded type (4) plus 5*sizeof(void*), i.e. sizeof(mobj_t) + 4 +
+   * size per object is sizeof(mobj_save_t) - 2*sizeof(void*) - 4*sizeof(fixed_t) plus
+   * padded type (4) plus 5*sizeof(void*), i.e. sizeof(mobj_save_t) + 4 +
    * 3*sizeof(void*)
    * cph - +1 for the tc_end
    */
-  CheckSaveGame(number_of_thinkers*(sizeof(mobj_t)-3*sizeof(fixed_t)+4+3*sizeof(void*)) +1);
+  CheckSaveGame(number_of_thinkers*(sizeof(mobj_save_t)-3*sizeof(fixed_t)+4+3*sizeof(void*)) +1);
 
   // save off the current thinkers
   for (th = thinkercap.next ; th != &thinkercap ; th=th->next)
     if (th->function == (think_t)P_MobjThinker)
       {
-        mobj_t *mobj;
+        mobj_save_t *mobj;
 
         *save_p++ = tc_mobj;
         PADSAVEP();
-        mobj = (mobj_t *)save_p;
+        mobj = (mobj_save_t *)save_p;
 	/* cph 2006/07/30 - 
 	 * The end of mobj_t changed from
 	 *  boolean invisible;
@@ -336,7 +334,9 @@ void P_ArchiveThinkers (void)
 	 * last 2 words of mobj_t, write 5 words of 0 and then write lastenemy
 	 * into the second of these.
 	 */
-        memcpy (mobj, th, sizeof(*mobj) - 2*sizeof(void*));
+        mobj_save_t snapshot;
+        P_MobjToSave(&snapshot,(const mobj_t*)th);
+        memcpy (mobj, &snapshot, sizeof(*mobj) - 2*sizeof(void*));
         save_p += sizeof(*mobj) - 2*sizeof(void*) - 4*sizeof(fixed_t);
         memset (save_p, 0, 5*sizeof(void*));
         mobj->state = (state_t *)(mobj->state - states);
@@ -454,7 +454,7 @@ void P_UnArchiveThinkers (void)
       {                     // skip all entries, adding up count
         PADSAVEP();
 	/* cph 2006/07/30 - see comment below for change in layout of mobj_t */
-        save_p += sizeof(mobj_t)+3*sizeof(void*)-4*sizeof(fixed_t);
+        save_p += sizeof(mobj_save_t)+3*sizeof(void*)-4*sizeof(fixed_t);
       }
 
     if (*--save_p != tc_end)
@@ -492,17 +492,19 @@ void P_UnArchiveThinkers (void)
        * fields of our current mobj_t. We then pull lastenemy from the 2nd of
        * the 5 leftover words, and skip the others.
        */
-      memcpy (mobj, save_p, sizeof(mobj_t)-2*sizeof(void*)-4*sizeof(fixed_t));
-      save_p += sizeof(mobj_t)-sizeof(void*)-4*sizeof(fixed_t);
-      memcpy (&(mobj->lastenemy), save_p, sizeof(void*));
+      mobj_save_t snapshot={0};
+      memcpy (&snapshot, save_p, sizeof(mobj_save_t)-2*sizeof(void*)-4*sizeof(fixed_t));
+      save_p += sizeof(mobj_save_t)-sizeof(void*)-4*sizeof(fixed_t);
+      memcpy (&snapshot.lastenemy, save_p, sizeof(void*));
       save_p += 4*sizeof(void*);
-      mobj->state = states + (int) mobj->state;
+      if((uintptr_t)snapshot.state>=NUMSTATES)I_Error("Actor save state outside table");
+      snapshot.state = states + (uintptr_t)snapshot.state;
+      P_MobjFromSave(mobj,&snapshot);
 
       if (mobj->player)
         (mobj->player = &players[(int) mobj->player - 1]) -> mo = mobj;
 
       P_SetThingPosition (mobj);
-      mobj->info = &mobjinfo[mobj->type];
 
       // killough 2/28/98:
       // Fix for falling down into a wall after savegame loaded:
@@ -791,7 +793,6 @@ void P_ArchiveSpecials (void)
   // add a terminating marker
   *save_p++ = tc_endspecials;
 }
-
 
 //
 // P_UnArchiveSpecials

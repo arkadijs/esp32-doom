@@ -32,7 +32,6 @@
  *
  *-----------------------------------------------------------------------------*/
 
-
 #ifndef __R_DATA__
 #define __R_DATA__
 
@@ -73,20 +72,18 @@ typedef struct
 extern int numtextures;
 extern texture_t **textures;
 
-
 const byte *R_GetTextureColumn(const rpatch_t *texpatch, int col);
-
+const byte *R_GetWallTextureColumn(const rpatch_t *texpatch, int col, const byte *cached_pixels);
+const byte *R_GetWallTextureColumn(const rpatch_t *texpatch, int col, const byte *cached_pixels);
 
 // I/O, setting up the stuff.
 void R_InitData (void);
 void R_PrecacheLevel (void);
 
-
 // Retrieval.
 // Floor/ceiling opaque texture tiles,
 // lookup by name. For animation?
 int R_FlatNumForName (const char* name);   // killough -- const added
-
 
 // R_*TextureNumForName returns the texture number for the texture name, or NO_TEXTURE if 
 //  there is no texture (i.e. "-") specified.
@@ -100,6 +97,7 @@ void R_InitTranMap(int);      // killough 3/6/98: translucency initialization
 int R_ColormapNumForName(const char *name);      // killough 4/4/98
 /* cph 2001/11/17 - new func to do lighting calcs and get suitable colour map */
 const lighttable_t* R_ColourMap(int lightlevel, fixed_t spryscale);
+int R_ColourMapBase(int lightlevel);
 
 extern const byte *main_tranmap, *tranmap;
 

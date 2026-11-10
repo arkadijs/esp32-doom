@@ -43,8 +43,9 @@
 #include "w_wad.h"
 #include "v_video.h"
 #include "lprintf.h"
-#include "esp_attr.h"
 
+#include "esp_attr.h"
+#include "r_sky_portal.h"
 
 // OPTIMIZE: closed two sided lines as single sided
 
@@ -117,8 +118,25 @@ static fixed_t R_ScaleFromGlobalAngle(angle_t visangle)
 // R_RenderMaskedSegRange
 //
 
+static inline const lighttable_t *R_WallColourMap(int base, fixed_t scale)
+{
+  if(fixedcolormap)return fixedcolormap;
+  int level=base-(FixedMul(scale,pspriteiscale)/2>>LIGHTSCALESHIFT);
+  if(level<0)level=0;
+  else if(level>=NUMCOLORMAPS)level=NUMCOLORMAPS-1;
+  return fullcolormap+level*256;
+}
+
 void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
 {
+  // A sprite may already have consumed this part of the masked wall. Trim
+  // before fetching textures or setting lighting; retain the original x basis.
+  while (x1<=x2 && ds->maskedtexturecol[x1]==INT_MAX) ++x1;
+  if (x1>x2) {
+    curline=NULL;
+    return;
+  }
+  while (ds->maskedtexturecol[x2]==INT_MAX) --x2;
   int      texnum;
   sector_t tempsec;      // killough 4/13/98
   const rpatch_t *patch;
@@ -136,7 +154,7 @@ void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
 
   // killough 4/11/98: draw translucent 2s normal textures
 
-  colfunc = R_GetDrawColumnFunc(RDC_PIPELINE_STANDARD, drawvars.filterwall, drawvars.filterz);
+  colfunc = R_GetMaskedDrawColumnFunc(drawvars.filterwall,drawvars.filterz);
   if (curline->linedef->tranlump >= 0 && general_translucency)
     {
       colfunc = R_GetDrawColumnFunc(RDC_PIPELINE_TRANSLUCENT, drawvars.filterwall, drawvars.filterz);
@@ -187,10 +205,28 @@ void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
 
   patch = R_CacheTextureCompositePatchNum(texnum);
 
+  const int base0=fixedcolormap ? 0 : R_ColourMapBase(rw_lightlevel);
+  const int base1=fixedcolormap || drawvars.filterz==RDRAW_FILTER_POINT ? base0 :
+      R_ColourMapBase(rw_lightlevel+1);
   // draw the columns
   for (dcvars.x = x1 ; dcvars.x <= x2 ; dcvars.x++, spryscale += rw_scalestep)
     if (maskedtexturecol[dcvars.x] != INT_MAX) // dropoff overflow
       {
+        if(mceilingclip[dcvars.x]>=mfloorclip[dcvars.x]-1) {
+          maskedtexturecol[dcvars.x]=INT_MAX;
+          continue;
+        }
+        {
+          int_64_t t = ((int_64_t) centeryfrac << FRACBITS) -
+            (int_64_t) dcvars.texturemid * spryscale;
+          if (t + (int_64_t) textureheight[texnum] * spryscale < 0 ||
+              t > (int_64_t) MAX_SCREENHEIGHT << FRACBITS*2)
+          {
+            maskedtexturecol[dcvars.x]=INT_MAX;
+            continue;
+          }
+          sprtopscreen = (long)(t >> FRACBITS);
+        }
         // calculate texture offset - POPE
         angle = (ds->rw_centerangle + xtoviewangle[dcvars.x]) >> ANGLETOFINESHIFT;
         dcvars.texu = ds->rw_offset - FixedMul(finetangent[angle], ds->rw_distance);
@@ -199,8 +235,9 @@ void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
 
         if (!fixedcolormap)
           dcvars.z = spryscale; // for filtering -- POPE
-        dcvars.colormap = R_ColourMap(rw_lightlevel,spryscale);
-        dcvars.nextcolormap = R_ColourMap(rw_lightlevel+1,spryscale); // for filtering -- POPE
+        dcvars.colormap=R_WallColourMap(base0,spryscale);
+        dcvars.nextcolormap=drawvars.filterz==RDRAW_FILTER_POINT ? dcvars.colormap :
+            R_WallColourMap(base1,spryscale);
 
         // killough 3/2/98:
         //
@@ -212,15 +249,6 @@ void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
         // arithmetic and by skipping the drawing of 2s normals whose
         // mapping to screen coordinates is totally out of range:
 
-        {
-          int_64_t t = ((int_64_t) centeryfrac << FRACBITS) -
-            (int_64_t) dcvars.texturemid * spryscale;
-          if (t + (int_64_t) textureheight[texnum] * spryscale < 0 ||
-              t > (int_64_t) MAX_SCREENHEIGHT << FRACBITS*2)
-            continue;        // skip if the texture is out of screen's range
-          sprtopscreen = (long)(t >> FRACBITS);
-        }
-
         dcvars.iscale = 0xffffffffu / (unsigned) spryscale;
 
         // killough 1/25/98: here's where Medusa came in, because
@@ -231,16 +259,14 @@ void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
         // the Medusa effect. The fix is to construct true columns
         // when forming multipatched textures (see r_data.c).
 
-        // draw the texture
-        R_DrawMaskedColumn(
-          patch,
-          colfunc,
-          &dcvars,
-          R_GetPatchColumnWrapped(patch, maskedtexturecol[dcvars.x]),
-          R_GetPatchColumnWrapped(patch, maskedtexturecol[dcvars.x]-1),
-          R_GetPatchColumnWrapped(patch, maskedtexturecol[dcvars.x]+1)
-        );
-
+        // Point sampling and slope metadata use only the current source column.
+        const rcolumn_t *column=R_GetPatchColumnWrapped(patch,maskedtexturecol[dcvars.x]);
+        const rcolumn_t *previous=column,*next=column;
+        if(drawvars.filterwall!=RDRAW_FILTER_POINT) {
+          previous=R_GetPatchColumnWrapped(patch,maskedtexturecol[dcvars.x]-1);
+          next=R_GetPatchColumnWrapped(patch,maskedtexturecol[dcvars.x]+1);
+        }
+        R_DrawMaskedColumn(patch,colfunc,&dcvars,column,previous,next);
         maskedtexturecol[dcvars.x] = INT_MAX; // dropoff overflow
       }
 
@@ -262,20 +288,100 @@ void IRAM_ATTR R_RenderMaskedSegRange(drawseg_t *ds, int x1, int x2)
 
 #define HEIGHTBITS 12
 #define HEIGHTUNIT (1<<HEIGHTBITS)
+
 static int didsolidcol; /* True if at least one column was marked solid */
+
+// Masked-only columns need U coordinates, but their lighting/scaling is set up
+// later by the masked renderer. Opaque sampling setup is shared across tiers.
+static inline fixed_t R_WallTextureU(int x)
+{
+  angle_t angle=(rw_centerangle+xtoviewangle[x])>>ANGLETOFINESHIFT;
+  fixed_t u=rw_offset-FixedMul(finetangent[angle],rw_distance);
+  if(drawvars.filterwall==RDRAW_FILTER_LINEAR)u-=(FRACUNIT>>1);
+  return u;
+}
+
+static int wall_lightbase[2];
+
+static inline fixed_t R_PrepareOpaqueWallColumn(draw_column_vars_t *dcvars)
+{
+  dcvars->texu=R_WallTextureU(rw_x);
+  dcvars->colormap=R_WallColourMap(wall_lightbase[0],rw_scale);
+  dcvars->nextcolormap=drawvars.filterz==RDRAW_FILTER_POINT ? dcvars->colormap :
+      R_WallColourMap(wall_lightbase[1],rw_scale);
+  dcvars->z=rw_scale;
+  dcvars->x=rw_x;
+  dcvars->iscale=0xffffffffu/(unsigned)rw_scale;
+  return dcvars->texu>>FRACBITS;
+}
+
+// Visibility-only portals require neither texture dispatch nor sampling state.
+// Keep the same clip/plane updates and fixed-point stepping as the general loop.
+static void R_RenderPortalLoop(void)
+{
+  int x=rw_x;
+  const int stop=rw_stopx, n=stop-x;
+  const int mc=markceiling, mf=markfloor;
+  fixed_t tf=topfrac, bf=bottomfrac;
+  const fixed_t ts=topstep, bs=bottomstep;
+  visplane_t *const cp=ceilingplane, *const fp=floorplane;
+  ++rendered_segs;
+  if(mc || mf) for(;x<stop;++x) {
+    int yh=bf>>HEIGHTBITS;
+    int yl=(tf+HEIGHTUNIT-1)>>HEIGHTBITS;
+    int top=ceilingclip[x]+1, bottom;
+    if(yl<top)yl=top;
+    if(mc) {
+      bottom=yl-1;
+      if(bottom>=floorclip[x])bottom=floorclip[x]-1;
+      if(top<=bottom)R_SetPlaneColumn(cp,x,top,bottom);
+      ceilingclip[x]=bottom;
+    }
+    bottom=floorclip[x]-1;
+    if(yh>bottom)yh=bottom;
+    if(mf) {
+      top=yh<ceilingclip[x] ? ceilingclip[x] : yh;
+      if(++top<=bottom)R_SetPlaneColumn(fp,x,top,bottom);
+      floorclip[x]=top;
+    }
+    // The untextured branch performs these final assignments even if the
+    // window has closed. Preserve that detail rather than simplifying clamps.
+    if(mc)ceilingclip[x]=yl-1;
+    if(mf)floorclip[x]=yh+1;
+    if(floorclip[x]<=ceilingclip[x]+1) {solidcol[x]=1;didsolidcol=1;}
+    tf+=ts;bf+=bs;
+  }
+  // Modulo-32-bit stepping is exactly the repeated wrapping additions, also
+  // when a completely inactive span can be skipped in constant time.
+  rw_scale=(fixed_t)((uint32_t)rw_scale+(uint32_t)rw_scalestep*(unsigned)n);
+  topfrac=(fixed_t)((uint32_t)topfrac+(uint32_t)ts*(unsigned)n);
+  bottomfrac=(fixed_t)((uint32_t)bottomfrac+(uint32_t)bs*(unsigned)n);
+  rw_x=stop;
+}
 
 static void IRAM_ATTR R_RenderSegLoop (void)
 {
   const rpatch_t *tex_patch;
-  R_DrawColumn_f colfunc = R_GetDrawColumnFunc(RDC_PIPELINE_STANDARD, drawvars.filterwall, drawvars.filterz);
+  const byte *mid_pixels=NULL, *top_pixels=NULL, *bottom_pixels=NULL;
+  // Pin only tiers actually drawn; allocation of another tier cannot evict them.
+  // Keep separate balanced locks even when tiers share the same texture ID.
+  const rpatch_t *mid_patch = NULL, *top_patch = NULL, *bottom_patch = NULL;
+  R_DrawColumn_f colfunc = R_GetWallDrawColumnFunc();
   draw_column_vars_t dcvars;
   fixed_t  texturecolumn = 0;   // shut up compiler warning
 
   R_SetDefaultDrawColumnVars(&dcvars);
+  if(segtextured) {
+    wall_lightbase[0]=R_ColourMapBase(rw_lightlevel);
+    if(drawvars.filterz!=RDRAW_FILTER_POINT)
+      wall_lightbase[1]=R_ColourMapBase(rw_lightlevel+1);
+  }
 
   rendered_segs++;
   for ( ; rw_x < rw_stopx ; rw_x++)
     {
+
+      int wall_ready=0;
 
        // mark floor / ceiling areas
 
@@ -297,8 +403,7 @@ static void IRAM_ATTR R_RenderSegLoop (void)
 
           if (top <= bottom)
             {
-              ceilingplane->top[rw_x] = top;
-              ceilingplane->bottom[rw_x] = bottom;
+              R_SetPlaneColumn(ceilingplane,rw_x,top,bottom);
             }
           // SoM: this should be set here
           ceilingclip[rw_x] = bottom;
@@ -317,48 +422,38 @@ static void IRAM_ATTR R_RenderSegLoop (void)
 
           if (++top <= bottom)
             {
-              floorplane->top[rw_x] = top;
-              floorplane->bottom[rw_x] = bottom;
+              R_SetPlaneColumn(floorplane,rw_x,top,bottom);
             }
           // SoM: This should be set here to prevent overdraw
           floorclip[rw_x] = top;
-        }
-
-      // texturecolumn and lighting are independent of wall tiers
-      if (segtextured)
-        {
-          // calculate texture offset
-          angle_t angle =(rw_centerangle+xtoviewangle[rw_x])>>ANGLETOFINESHIFT;
-
-          texturecolumn = rw_offset-FixedMul(finetangent[angle],rw_distance);
-          if (drawvars.filterwall == RDRAW_FILTER_LINEAR)
-            texturecolumn -= (FRACUNIT>>1);
-          dcvars.texu = texturecolumn; // for filtering -- POPE
-          texturecolumn >>= FRACBITS;
-
-          dcvars.colormap = R_ColourMap(rw_lightlevel,rw_scale);
-          dcvars.nextcolormap = R_ColourMap(rw_lightlevel+1,rw_scale); // for filtering -- POPE
-          dcvars.z = rw_scale; // for filtering -- POPE
-
-          dcvars.x = rw_x;
-          dcvars.iscale = 0xffffffffu / (unsigned)rw_scale;
         }
 
       // draw the wall tiers
       if (midtexture)
         {
 
+          if(yh>=yl) {
+            texturecolumn=R_PrepareOpaqueWallColumn(&dcvars);wall_ready=1;
           dcvars.yl = yl;     // single sided line
           dcvars.yh = yh;
           dcvars.texturemid = rw_midtexturemid;
-          tex_patch = R_CacheTextureCompositePatchNum(midtexture);
-          dcvars.source = R_GetTextureColumn(tex_patch, texturecolumn);
-          dcvars.prevsource = R_GetTextureColumn(tex_patch, texturecolumn-1);
-          dcvars.nextsource = R_GetTextureColumn(tex_patch, texturecolumn+1);
+          if (!mid_patch) {
+            mid_patch = R_CacheTextureCompositePatchNum(midtexture);
+            if (mid_patch->isFlashComposite) mid_pixels=R_CacheFlashTexturePixels(mid_patch);
+          }
+          tex_patch = mid_patch;
+          dcvars.source = R_GetWallTextureColumn(tex_patch,texturecolumn,mid_pixels);
+          if (drawvars.filterwall == RDRAW_FILTER_POINT) {
+            dcvars.prevsource = dcvars.nextsource = dcvars.source;
+          } else
+          {
+            dcvars.prevsource = R_GetTextureColumn(tex_patch, texturecolumn-1);
+            dcvars.nextsource = R_GetTextureColumn(tex_patch, texturecolumn+1);
+          }
           dcvars.texheight = midtexheight;
           colfunc (&dcvars);
-          R_UnlockTextureCompositePatchNum(midtexture);
           tex_patch = NULL;
+          }
           ceilingclip[rw_x] = viewheight;
           floorclip[rw_x] = -1;
         }
@@ -377,16 +472,27 @@ static void IRAM_ATTR R_RenderSegLoop (void)
 
               if (mid >= yl)
                 {
+                  if(!wall_ready) {
+                    texturecolumn=R_PrepareOpaqueWallColumn(&dcvars);wall_ready=1;
+                  }
                   dcvars.yl = yl;
                   dcvars.yh = mid;
                   dcvars.texturemid = rw_toptexturemid;
-                  tex_patch = R_CacheTextureCompositePatchNum(toptexture);
-                  dcvars.source = R_GetTextureColumn(tex_patch,texturecolumn);
-                  dcvars.prevsource = R_GetTextureColumn(tex_patch,texturecolumn-1);
-                  dcvars.nextsource = R_GetTextureColumn(tex_patch,texturecolumn+1);
+                  if (!top_patch) {
+                    top_patch = R_CacheTextureCompositePatchNum(toptexture);
+                    if (top_patch->isFlashComposite) top_pixels=R_CacheFlashTexturePixels(top_patch);
+                  }
+                  tex_patch = top_patch;
+                  dcvars.source = R_GetWallTextureColumn(tex_patch,texturecolumn,top_pixels);
+                  if (drawvars.filterwall == RDRAW_FILTER_POINT) {
+                    dcvars.prevsource = dcvars.nextsource = dcvars.source;
+                  } else
+                  {
+                    dcvars.prevsource = R_GetTextureColumn(tex_patch, texturecolumn-1);
+                    dcvars.nextsource = R_GetTextureColumn(tex_patch, texturecolumn+1);
+                  }
                   dcvars.texheight = toptexheight;
-                  colfunc (&dcvars);
-                  R_UnlockTextureCompositePatchNum(toptexture);
+          colfunc (&dcvars);
                   tex_patch = NULL;
                   ceilingclip[rw_x] = mid;
                 }
@@ -411,16 +517,27 @@ static void IRAM_ATTR R_RenderSegLoop (void)
 
               if (mid <= yh)
                 {
+                  if(!wall_ready) {
+                    texturecolumn=R_PrepareOpaqueWallColumn(&dcvars);wall_ready=1;
+                  }
                   dcvars.yl = mid;
                   dcvars.yh = yh;
                   dcvars.texturemid = rw_bottomtexturemid;
-                  tex_patch = R_CacheTextureCompositePatchNum(bottomtexture);
-                  dcvars.source = R_GetTextureColumn(tex_patch, texturecolumn);
-                  dcvars.prevsource = R_GetTextureColumn(tex_patch, texturecolumn-1);
-                  dcvars.nextsource = R_GetTextureColumn(tex_patch, texturecolumn+1);
+                  if (!bottom_patch) {
+                    bottom_patch = R_CacheTextureCompositePatchNum(bottomtexture);
+                    if (bottom_patch->isFlashComposite) bottom_pixels=R_CacheFlashTexturePixels(bottom_patch);
+                  }
+                  tex_patch = bottom_patch;
+                  dcvars.source = R_GetWallTextureColumn(tex_patch,texturecolumn,bottom_pixels);
+                  if (drawvars.filterwall == RDRAW_FILTER_POINT) {
+                    dcvars.prevsource = dcvars.nextsource = dcvars.source;
+                  } else
+                  {
+                    dcvars.prevsource = R_GetTextureColumn(tex_patch, texturecolumn-1);
+                    dcvars.nextsource = R_GetTextureColumn(tex_patch, texturecolumn+1);
+                  }
                   dcvars.texheight = bottomtexheight;
-                  colfunc (&dcvars);
-                  R_UnlockTextureCompositePatchNum(bottomtexture);
+          colfunc (&dcvars);
                   tex_patch = NULL;
                   floorclip[rw_x] = mid;
                 }
@@ -441,14 +558,20 @@ static void IRAM_ATTR R_RenderSegLoop (void)
     }
 
           // save texturecol for backdrawing of masked mid texture
-          if (maskedtexture)
+          if (maskedtexture) {
+            if(!wall_ready)texturecolumn=R_WallTextureU(rw_x)>>FRACBITS;
             maskedtexturecol[rw_x] = texturecolumn;
+          }
         }
 
       rw_scale += rw_scalestep;
       topfrac += topstep;
       bottomfrac += bottomstep;
     }
+  if (mid_patch) R_UnlockTextureCompositePatchNum(midtexture);
+  if (top_patch) R_UnlockTextureCompositePatchNum(toptexture);
+  if (bottom_patch) R_UnlockTextureCompositePatchNum(bottomtexture);
+
 }
 
 // killough 5/2/98: move from r_main.c, made static, simplified
@@ -467,6 +590,28 @@ static fixed_t R_PointToDist(fixed_t x, fixed_t y)
 
   return FixedDiv(dx, finesine[(tantoangle[FixedDiv(dy,dx) >> DBITS]
                                 + ANG90) >> ANGLETOFINESHIFT]);
+}
+
+#include <assert.h>
+static wall_distance_entry_t *view_distances;
+void R_SetWallDistanceCache(wall_distance_entry_t *entries)
+{
+  assert(!entries || !view_distances);
+  view_distances=entries;
+}
+static inline fixed_t R_WallVertexDistance(const vertex_t *vertex)
+{
+  if(view_distances) {
+    unsigned slot=((uintptr_t)vertex>>3)&(WALL_DISTANCE_SLOTS-1);
+    wall_distance_entry_t *entry=&view_distances[slot];
+    if(entry->vertex==vertex) {
+      return entry->distance;
+    }
+    entry->distance=R_PointToDist(vertex->x,vertex->y);
+    entry->vertex=vertex;
+    return entry->distance;
+  }
+  return R_PointToDist(vertex->x,vertex->y);
 }
 
 //
@@ -502,7 +647,6 @@ void R_StoreWallRange(const int start, const int stop)
   }
 #endif
 
-
 #ifdef RANGECHECK
   if (start >=viewwidth || start > stop)
     I_Error ("Bad R_RenderWallRange: %i to %i", start , stop);
@@ -510,6 +654,14 @@ void R_StoreWallRange(const int start, const int stop)
 
   sidedef = curline->sidedef;
   linedef = curline->linedef;
+
+  if(R_IsEmptySkyPortal(frontsector,backsector,sidedef,linedef->r_flags,viewz,skyflatnum)) {
+    // The caller already clipped this range horizontally, so preserve mapping.
+    // Its discarded drawseg would have no silhouette or masked columns.
+    linedef->flags|=ML_MAPPED;
+    ++rendered_segs;
+    return;
+  }
 
   // mark the segment as visible for auto map
   linedef->flags |= ML_MAPPED;
@@ -523,7 +675,7 @@ void R_StoreWallRange(const int start, const int stop)
     offsetangle = ANG90;
 
   hyp = (viewx==curline->v1->x && viewy==curline->v1->y)?
-    0 : R_PointToDist (curline->v1->x, curline->v1->y);
+    0 : R_WallVertexDistance(curline->v1);
   rw_distance = FixedMul(hyp, finecosine[offsetangle>>ANGLETOFINESHIFT]);
 
   ds_p->x1 = rw_x = start;
@@ -815,6 +967,8 @@ void R_StoreWallRange(const int start, const int stop)
   }
 
   didsolidcol = 0;
+  if(!segtextured)R_RenderPortalLoop();
+  else
   R_RenderSegLoop();
 
   /* cph - if a column was made solid by this wall, we _must_ save full clipping info */

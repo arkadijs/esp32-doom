@@ -29,9 +29,9 @@ This is Doom's I_* sound HAL implementation and the only file that talks to Free
 - SFX side (self-contained): LoadSfx() parses Doom's raw PCM lump format (8-byte header + samples) straight out of the WAD via W_CacheLumpNum. I_StartSound/I_StopSound/I_UpdateSoundParams write into a fixed array of 32 mix_channel_t slots (a fixed-point resampling step,
 left/right gain, playback position) guarded by audio_mutex.
 - Music side: it never touches OPL registers itself. It holds one pointer, music_player = &opl_synth_player (defined at the bottom of oplplayer.c), and calls through that vtable: music_player->init/play/pause/render/registersong/.... All the
-I_PlaySong/I_RegisterSong/etc. functions are thin, mutex-protected forwarders to that struct.
-- AudioTask (its own FreeRTOS task, pinned to core 1) is the actual real-time loop: for each 256-frame buffer it calls music_player->render(music, MIX_FRAMES) (→ oplplayer.c → opl.c → dbopl.c), mixes the 32 SFX channels sample-by-sample on top of that OPL output, clips
-to 16-bit, and blocks on i2s_dac_write(). That blocking DMA write is what paces the whole loop to real time.
+Playback/control functions are mutex-protected forwarders. Song registration parses a private handle outside the mutex; playback publishes it under the lock.
+- AudioTask runs on core 1 with a static 6 KiB internal stack. Each block renders 256 stereo frames into one 1 KiB output array, then `PCM_MixBlock` mixes active SFX in place. It scans 32 slots once per block, preserving channel order, rounding and clipping. The OPL mono workspace is 256 int32 samples (1 KiB). A blocking I2S DMA write paces playback at 22,050 Hz.
+- The active-channel mixer is always enabled. It preserves legacy sample order, rounding, clipping and channel state; no validation buffers or periodic audio diagnostics are linked into firmware.
 
 ### dbopl/oplplayer.c — MIDI-to-OPL music driver
 
@@ -80,4 +80,4 @@ AudioTask in i_sound.c is its only caller, once per 256-frame buffer.
 ### Concurrency
 
 Everything from oplplayer.c down to dbopl.c is single-threaded and not reentrant-safe on its own — it's i_sound.c's audio_mutex that makes it safe to call from both AudioTask (rendering, on core 1) and the main Doom game task (on core 0, calling
-I_PlaySong/I_RegisterSong/etc. as gameplay triggers music changes). Every entry point in i_sound.c takes that mutex before touching music_player.
+playback/control APIs as gameplay triggers music changes). Live synth state remains protected by that mutex. Registration only constructs a new MIDI representation and does not mutate the live synth, so parsing/conversion runs outside it. This avoids a roughly 112 ms MAP03 registration starving the roughly 65 ms DMA ring.

@@ -1,6 +1,6 @@
 idf_component_register(
   INCLUDE_DIRS include
-  REQUIRES prboom-wad-tables
+  REQUIRES prboom-wad-tables esp_timer
   SRCS
 am_map.c
 d_client.c
@@ -58,6 +58,7 @@ r_filter.c
 r_fps.c
 r_main.c
 r_patch.c
+r_flashpatch.c
 r_plane.c
 r_segs.c
 r_sky.c
@@ -95,3 +96,11 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
   -Wno-char-subscripts -Wno-type-limits -Wno-format-overflow -Wno-implicit-fallthrough -Wno-duplicate-decl-specifier
   -Wno-nonnull -Wno-parentheses -Wno-address -Wno-sizeof-pointer-div -Wno-unused-but-set-variable -Wno-unused-but-set-variable
 )
+
+# Doom requires wrapping signed arithmetic and legacy aliasing semantics.
+target_compile_options(${COMPONENT_LIB} PRIVATE -O2 -fwrapv -fno-strict-aliasing)
+
+# Renderer-only exact native-word division; simulation retains PrBoom math.
+set_property(SOURCE r_bsp.c r_segs.c r_draw.c r_plane.c r_things.c
+    r_data.c r_patch.c r_flashpatch.c r_main.c tables.c
+    APPEND PROPERTY COMPILE_DEFINITIONS DOOM_FAST_FIXED_DIV=1)

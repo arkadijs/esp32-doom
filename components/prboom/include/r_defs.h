@@ -82,6 +82,10 @@ typedef struct
   thinker_t thinker;  // not used for anything
   fixed_t x, y, z;
 } degenmobj_t;
+_Static_assert(offsetof(mobj_t,x)==offsetof(degenmobj_t,x) &&
+               offsetof(mobj_t,y)==offsetof(degenmobj_t,y) &&
+               offsetof(mobj_t,z)==offsetof(degenmobj_t,z),
+               "Compact actor must preserve sound origin prefix");
 
 //
 // The SECTORS record, at runtime.
@@ -215,7 +219,6 @@ typedef struct line_s
   degenmobj_t soundorg;  // sound origin for switches/buttons
 } line_t;
 
-
 // phares 3/14/98
 //
 // Sector list node showing all sectors an object appears in.
@@ -259,7 +262,6 @@ typedef struct
   float     length;
   boolean   miniseg;
 
-
   // Sector references.
   // Could be retrieved from linedef, too
   // (but that would be slower -- killough)
@@ -267,7 +269,6 @@ typedef struct
 
   sector_t *frontsector, *backsector;
 } seg_t;
-
 
 //
 // A SubSector.
@@ -282,7 +283,6 @@ typedef struct subsector_s
   sector_t *sector;
   unsigned short numlines, firstline;
 } subsector_t;
-
 
 //
 // BSP node.
@@ -418,11 +418,27 @@ typedef struct visplane
   int picnum, lightlevel, minx, maxx;
   fixed_t height;
   fixed_t xoffs, yoffs;         // killough 2/28/98: Support scrolling flats
-  unsigned int pad1;          // leave pads for [minx-1]/[maxx+1]
-  unsigned int top[MAX_SCREENWIDTH];
-  unsigned int pad2, pad3;    // killough 2/8/98, 4/25/98
-  unsigned int bottom[MAX_SCREENWIDTH];
-  unsigned int pad4; // dropoff overflow
+  // Column x is bounds[x+1]; both edge sentinels are within the array.
+  uint32_t bounds[MAX_SCREENWIDTH+2];
 } visplane_t;
+
+#include <string.h>
+#include "r_plane_bounds.h"
+_Static_assert(MAX_SCREENHEIGHT<UINT16_MAX,"visplane row must fit below marker");
+static inline unsigned R_PlaneTop(const visplane_t *pl, int x) {
+  return R_PackedPlaneTop(pl->bounds[x+1]);
+}
+static inline unsigned R_PlaneBottom(const visplane_t *pl, int x) {
+  return R_PackedPlaneBottom(pl->bounds[x+1]);
+}
+static inline void R_SetPlaneColumn(visplane_t *pl, int x, unsigned top, unsigned bottom) {
+  pl->bounds[x+1]=R_PackPlaneColumn(top,bottom);
+}
+static inline void R_SetPlaneEmpty(visplane_t *pl, int x) {
+  pl->bounds[x+1]|=UINT16_MAX;
+}
+static inline void R_ClearPlaneBounds(visplane_t *pl) {
+  memset(pl->bounds,0xff,sizeof(pl->bounds));
+}
 
 #endif

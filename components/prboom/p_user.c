@@ -68,7 +68,6 @@ void P_Thrust(player_t* player,angle_t angle,fixed_t move)
   player->mo->momy += FixedMul(move,finesine[angle]);
   }
 
-
 /*
  * P_Bob
  * Same as P_Thrust, but only affects bobbing.
@@ -106,7 +105,6 @@ void P_CalcHeight (player_t* player)
   // OPTIMIZE: tablify angle
   // Note: a LUT allows for effects
   //  like a ramp with low health.
-
 
   /* killough 10/98: Make bobbing depend only on player-applied motion.
    *
@@ -184,7 +182,6 @@ void P_CalcHeight (player_t* player)
     player->viewz = player->mo->ceilingz-4*FRACUNIT;
   }
 
-
 //
 // P_MovePlayer
 //
@@ -237,7 +234,7 @@ void P_MovePlayer (player_t* player)
           P_Thrust(player,mo->angle-ANG90,cmd->sidemove*movefactor);
         }
       }
-      if (mo->state == states+S_PLAY)
+      if (P_MobjState(mo) == states+S_PLAY)
         P_SetMobjState(mo,S_PLAY_RUN1);
     }
 }
@@ -300,7 +297,6 @@ void P_DeathThink (player_t* player)
     player->playerstate = PST_REBORN;
   R_SmoothPlaying_Reset(player); // e6y
   }
-
 
 //
 // P_PlayerThink

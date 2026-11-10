@@ -24,20 +24,12 @@
 #include "dbopl/oplplayer.h"
 
 #define MIX_CHANNELS 32
-#define MIX_FRAMES 256
+#include "audio_config.h"
+#define MIX_FRAMES DOOM_AUDIO_BLOCK_FRAMES
 #define NORM_PITCH_VALUE 128
 
-typedef struct
-{
-    const uint8_t *samples;
-    uint32_t length;
-    uint32_t position;
-    uint32_t step;
-    uint16_t sample_rate;
-    uint8_t left;
-    uint8_t right;
-    bool active;
-} mix_channel_t;
+#include "pcm_mix.h"
+_Static_assert(MIX_CHANNELS==PCM_CHANNELS,"PCM channel count");
 
 typedef struct
 {
@@ -54,9 +46,12 @@ static mix_channel_t channels[MIX_CHANNELS];
 static SemaphoreHandle_t audio_mutex;
 static StaticSemaphore_t audio_mutex_storage;
 static StaticTask_t audio_task_storage;
-static StackType_t audio_task_stack[8192];
+// A single 1 KiB stereo buffer is reused for music and the final mix.
+// Keep a 6 KiB stack (about 4 KiB measured reserve) for dense MIDI callbacks.
+static StackType_t audio_task_stack[6144];
 static bool audio_initialized;
 static bool music_playing;
+static TaskHandle_t audio_task_handle;
 
 int snd_card = 1;
 int mus_card = 1;
@@ -105,17 +100,9 @@ static bool LoadSfx(int id)
     return true;
 }
 
-static inline int16_t Clip16(int32_t sample)
-{
-    if (sample > INT16_MAX) return INT16_MAX;
-    if (sample < INT16_MIN) return INT16_MIN;
-    return (int16_t) sample;
-}
-
 static void AudioTask(void *arg)
 {
     int16_t output[MIX_FRAMES * 2];
-    int16_t music[MIX_FRAMES * 2];
 
     (void) arg;
     i2s_dac_start();
@@ -123,38 +110,9 @@ static void AudioTask(void *arg)
     for (;;)
     {
         xSemaphoreTake(audio_mutex, portMAX_DELAY);
-        memset(music, 0, sizeof(music));
-        if (music_playing) music_player->render(music, MIX_FRAMES);
-
-        for (unsigned int frame = 0; frame < MIX_FRAMES; ++frame)
-        {
-            int32_t left = music[frame * 2];
-            int32_t right = music[frame * 2 + 1];
-
-            for (unsigned int i = 0; i < MIX_CHANNELS; ++i)
-            {
-                mix_channel_t *channel = &channels[i];
-                uint32_t index;
-                int32_t sample;
-                if (!channel->active) continue;
-
-                index = channel->position >> 16;
-                if (index >= channel->length)
-                {
-                    channel->active = false;
-                    continue;
-                }
-
-                sample = ((int32_t) channel->samples[index] - 128) << 8;
-                left += sample * channel->left / 127;
-                right += sample * channel->right / 127;
-                channel->position += channel->step;
-            }
-
-            output[frame * 2] = Clip16(left);
-            output[frame * 2 + 1] = Clip16(right);
-        }
-
+        memset(output, 0, sizeof(output));
+        if (music_playing) music_player->render(output, MIX_FRAMES);
+        PCM_MixBlock(channels,output,output,MIX_FRAMES);
         xSemaphoreGive(audio_mutex);
         i2s_dac_write(output, MIX_FRAMES);
         // Give IDLE1 a scheduling window so the task watchdog is serviced;
@@ -283,6 +241,7 @@ void I_InitSound(void)
                                                        NULL, 6, audio_task_stack,
                                                        &audio_task_storage, core);
     assert(task != NULL);
+    audio_task_handle=task;
     lprintf(LO_INFO, "I_InitSound: DOSBox OPL music, %d Hz PCM mixer, "
                       "%d SFX channels, audio task on core %d\n",
             snd_samplerate, MIX_CHANNELS, core);
@@ -357,7 +316,9 @@ int I_RegisterSong(const void *data, size_t len)
     size_t midi_len;
     if (!audio_initialized || data == NULL || len == 0) return 0;
 
-    xSemaphoreTake(audio_mutex, portMAX_DELAY);
+    // Parsing builds a private handle and does not touch live synth/track state.
+    // Publish it only through I_PlaySong's mutex-protected player->play call.
+    // Holding the mixer mutex across parsing can drain the I2S DMA ring.
     if (len >= 4 && memcmp(data, "MThd", 4) == 0)
     {
         handle = music_player->registersong(data, len);
@@ -374,7 +335,6 @@ int I_RegisterSong(const void *data, size_t len)
         mem_fclose(input);
         mem_fclose(output);
     }
-    xSemaphoreGive(audio_mutex);
     if (handle == NULL)
         lprintf(LO_WARN, "I_RegisterSong: failed to register song (%u bytes)\n",
                 (unsigned) len);

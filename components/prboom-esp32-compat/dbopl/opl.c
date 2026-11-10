@@ -23,7 +23,6 @@
 //
 //-----------------------------------------------------------------------------
 
-
 #include "config.h"
 
 #include <assert.h>
@@ -32,14 +31,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-
 #include "opl.h"
 #include "opl_queue.h"
 #include "dbopl.h"
+#include "audio_config.h"
 
 // Largest chunk ever requested of FillBuffer() in one call. Bounded by the
 // caller's mixer buffer size (see MIX_FRAMES in i_sound.c); asserted below.
-#define OPL_MAX_RENDER_SAMPLES 512
+#define OPL_MAX_RENDER_SAMPLES DOOM_AUDIO_BLOCK_FRAMES
 
 static int init_stage_reg_writes = 1;
 
@@ -49,7 +48,6 @@ unsigned int opl_sample_rate = 22050;
 // inaudible next to the PCM sound effects, which are mixed near full
 // volume. Boost it here; 50 would be unity gain.
 int mus_opl_gain = 300;
-
 
 #define MAX_SOUND_SLICE_TIME 100 /* ms */
 
@@ -61,11 +59,9 @@ typedef struct
     unsigned int expire_time; // Calculated time that timer will expire.
 } opl_timer_t;
 
-
 // Queue of callbacks waiting to be invoked.
 
 static opl_callback_queue_t *callback_queue;
-
 
 // Current time, in number of samples since startup:
 
@@ -98,7 +94,6 @@ static int register_num = 0;
 static opl_timer_t timer1 = { 12500, 0, 0, 0 };
 static opl_timer_t timer2 = { 3125, 0, 0, 0 };
 
-
 //
 // Init/shutdown code.
 //
@@ -117,7 +112,6 @@ int OPL_Init (unsigned int rate)
     callback_queue = OPL_Queue_Create();
     current_time = 0;
 
-
     if (!opl_tables_ready)
     {
         DBOPL_InitTables();
@@ -125,7 +119,6 @@ int OPL_Init (unsigned int rate)
     }
     Chip__Chip(&opl_chip);
     Chip__Setup(&opl_chip, opl_sample_rate);
-
 
     OPL_InitRegisters();
 
@@ -172,7 +165,6 @@ static void OPLTimer_CalculateEndTime(opl_timer_t *timer)
                            + (tics * opl_sample_rate) / timer->rate;
     }
 }
-
 
 static void WriteRegister(unsigned int reg_num, unsigned int value)
 {
@@ -222,7 +214,6 @@ static void OPL_AdvanceTime(unsigned int nsamples)
     opl_callback_t callback;
     void *callback_data;
 
-
     // Advance time.
 
     current_time += nsamples;
@@ -244,7 +235,6 @@ static void OPL_AdvanceTime(unsigned int nsamples)
         {
             break;
         }
-
 
         callback(callback_data);
 
@@ -276,14 +266,11 @@ static void FillBuffer(int16_t *buffer, unsigned int nsamples)
     }
 }
 
-
 void OPL_Render_Samples (void *dest, unsigned buffer_len)
 {
     unsigned int filled = 0;
 
-
     short *buffer = (short *) dest;
-   
 
     // Repeatedly call the OPL emulator update function until the buffer is
     // full.
@@ -292,7 +279,6 @@ void OPL_Render_Samples (void *dest, unsigned buffer_len)
     {
         unsigned int next_callback_time;
         unsigned int nsamples;
-
 
         // Work out the time until the next callback waiting in
         // the callback queue must be invoked.  We can then fill the
@@ -313,7 +299,6 @@ void OPL_Render_Samples (void *dest, unsigned buffer_len)
                 nsamples = buffer_len - filled;
             }
         }
-
 
         // Add emulator output to buffer.
 
@@ -405,7 +390,6 @@ void OPL_WriteRegister(int reg, int value)
     }
 }
 
-
 // Initialize registers on startup
 
 void OPL_InitRegisters(void)
@@ -449,17 +433,7 @@ void OPL_InitRegisters(void)
     OPL_WriteRegister(OPL_REG_FM_MODE,         0x40);
 }
 
-
-
 void OPL_SetPaused(int paused)
 {
     opl_paused = paused;
 }
-
-
-
-
-
-
-
-

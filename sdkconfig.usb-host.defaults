@@ -9,10 +9,6 @@ CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 CONFIG_USB_HOST_HUBS_SUPPORTED=y
 # CONFIG_USB_HOST_HUB_MULTI_LEVEL is not set
 
-# The USB host stack needs internal DMA-capable RAM (hub interrupt pipes) after
-# the game has started; keep small general-purpose allocations in PSRAM.
-CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=0
-
 # Low-speed devices behind a hub need longer reset/recovery timing than the
 # defaults to enumerate reliably.
 CONFIG_USB_HOST_RESET_HOLD_MS=50

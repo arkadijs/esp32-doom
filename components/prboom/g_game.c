@@ -283,7 +283,6 @@ static inline signed short fudgea(signed short b)
   return b;
 }
 
-
 void G_BuildTiccmd(ticcmd_t* cmd)
 {
   boolean strafe;
@@ -598,7 +597,6 @@ static void G_DoLoadLevel (void)
   ST_Start();
   HU_Start();
 }
-
 
 //
 // G_Responder
@@ -1121,7 +1119,6 @@ static boolean G_CheckSpot(int playernum, mapthing_t *mthing)
   return true;
 }
 
-
 // G_DeathMatchSpawnPlayer
 // Spawns a player at one of the random death match spots
 // called at level load and each death
@@ -1385,6 +1382,17 @@ void G_WorldDone (void)
 
 void G_DoWorldDone (void)
 {
+  // A deliberately packed campaign can end before the original MAP30.
+  // Return to the title instead of asking the WAD loader for an absent map.
+  if (gamemode == commercial && M_CheckParm("-partial-iwad")) {
+    char nextmap[9];
+    snprintf(nextmap,sizeof(nextmap),"MAP%02d",wminfo.next+1);
+    if (W_CheckNumForName(nextmap) < 0) {
+      D_StartTitle();
+      AM_clearMarks();
+      return;
+    }
+  }
   idmusnum = -1;             //jff 3/17/98 allow new level's music to be loaded
   gamestate = GS_LEVEL;
   gamemap = wminfo.next+1;
@@ -1988,7 +1996,6 @@ void G_ReloadDefaults(void)
   /* cph 2007/06/31 - for some reason, the default_* of the next 2 vars was never implemented */
   variable_friction = default_variable_friction;
   allow_pushers     = default_allow_pushers;
-
 
   monsters_remember = default_monsters_remember;   // remember former enemies
 

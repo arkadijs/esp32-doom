@@ -6,7 +6,8 @@ typedef unsigned char byte;
 
 extern uint16_t lcdpal[256];
 
-void i80_lcd_send(byte *screen);
+byte *i80_lcd_send(byte *screen, int swap);
+void i80_lcd_restore_last(byte *screen);
 void i80_lcd_init();
 
 #endif // I80_LCD_H

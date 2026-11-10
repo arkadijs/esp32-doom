@@ -41,7 +41,7 @@
 #include "lprintf.h"
 #include "r_patch.h"
 #include <assert.h>
-
+#include "m_argv.h"
 
 // posts are runs of non masked source pixels
 typedef struct
@@ -90,6 +90,7 @@ void R_InitPatches(void) {
     // clear out new patches to signal they're uninitialized
     memset(texture_composites, 0, sizeof(rpatch_t)*numtextures);
   }
+  R_InitFlashTextures();
 }
 
 //---------------------------------------------------------------------------
@@ -99,16 +100,22 @@ void R_FlushAllPatches(void) {
   if (patches)
   {
     for (i=0; i < numlumps; i++)
-      if (patches[i].locks > 0)
-        I_Error("R_FlushAllPatches: patch number %i still locked",i);
+      {
+        if (patches[i].locks > 0)
+          I_Error("R_FlushAllPatches: patch number %i still locked",i);
+        if (patches[i].data) Z_Free(patches[i].data);
+      }
     free(patches);
     patches = NULL;
   }
   if (texture_composites)
   {
     for (i=0; i<numtextures; i++)
-      if (texture_composites[i].data)
-        free(texture_composites[i].data);
+      {
+        if (texture_composites[i].locks > 0)
+          I_Error("R_FlushAllPatches: texture %i still locked",i);
+        if (texture_composites[i].data) Z_Free(texture_composites[i].data);
+      }
     free(texture_composites);
     texture_composites = NULL;
   }
@@ -424,6 +431,7 @@ static void createTextureCompositePatch(int id) {
   composite_patch->leftoffset = 0;
   composite_patch->topoffset = 0;
   composite_patch->isNotTileable = 0;
+  composite_patch->isFlashComposite = 0;
 
   // work out how much memory we need to allocate for this patch's data
   pixelDataSize = (composite_patch->width * composite_patch->height + 4) & ~3;
@@ -666,6 +674,9 @@ static void createTextureCompositePatch(int id) {
   free(countsInColumn);
 }
 
+// Compare the host-generated representation with this target's original C path.
+// Only one texture pair is resident at a time; leave both caches cold afterward.
+
 //---------------------------------------------------------------------------
 const rpatch_t *R_CachePatchNum(int id) {
   const int locks = 1;
@@ -716,7 +727,9 @@ void R_UnlockPatchNum(int id)
 }
 
 //---------------------------------------------------------------------------
+
 const rpatch_t *R_CacheTextureCompositePatchNum(int id) {
+
   const int locks = 1;
 
   if (!texture_composites)
@@ -727,7 +740,13 @@ const rpatch_t *R_CacheTextureCompositePatchNum(int id) {
     I_Error("createTextureCompositePatch: %i >= numtextures", id);
 #endif
 
-  if (!texture_composites[id].data)
+  // Filters/video modes can change between frames; discard mapped column views
+  // before falling back to the original contiguous compositor.
+  if (texture_composites[id].data && texture_composites[id].isFlashComposite && !R_CanUseFlashTextures()) {
+    if (texture_composites[id].locks) I_Error("TXFLASH: mode change while texture locked");
+    Z_Free(texture_composites[id].data);
+  }
+  if (!texture_composites[id].data && !R_LoadFlashTexture(id, &texture_composites[id]))
     createTextureCompositePatch(id);
 
   /* cph - if wasn't locked but now is, tell z_zone to hold it */
@@ -767,8 +786,13 @@ void R_UnlockTextureCompositePatchNum(int id)
 
 //---------------------------------------------------------------------------
 const rcolumn_t *R_GetPatchColumnWrapped(const rpatch_t *patch, int columnIndex) {
-  while (columnIndex < 0) columnIndex += patch->width;
-  columnIndex %= patch->width;
+  const int width=patch->width;
+  if(!(width&(width-1)))
+    columnIndex=(unsigned)columnIndex & (unsigned)(width-1);
+  else {
+    columnIndex%=width;
+    if(columnIndex<0)columnIndex+=width;
+  }
   return &patch->columns[columnIndex];
 }
 
@@ -784,4 +808,3 @@ const rcolumn_t *R_GetPatchColumn(const rpatch_t *patch, int columnIndex) {
   if (patch->isNotTileable) return R_GetPatchColumnClamped(patch, columnIndex);
   else return R_GetPatchColumnWrapped(patch, columnIndex);
 }
-

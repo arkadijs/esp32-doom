@@ -79,16 +79,16 @@ boolean P_SetMobjState(mobj_t* mobj,statenum_t state)
     {
     if (state == S_NULL)
       {
-      mobj->state = (state_t *) S_NULL;
+      P_SetMobjStateRef(mobj,NULL);
       P_RemoveMobj (mobj);
       ret = false;
       break;                 // killough 4/9/98
       }
 
     st = &states[state];
-    mobj->state = st;
+    P_SetMobjStateRef(mobj,st);
     mobj->tics = st->tics;
-    mobj->sprite = st->sprite;
+    P_SetMobjSprite(mobj,st->sprite);
     mobj->frame = st->frame;
 
     // Modified handling.
@@ -112,7 +112,6 @@ boolean P_SetMobjState(mobj_t* mobj,statenum_t state)
   return ret;
   }
 
-
 //
 // P_ExplodeMissile
 //
@@ -130,10 +129,9 @@ void P_ExplodeMissile (mobj_t* mo)
 
   mo->flags &= ~MF_MISSILE;
 
-  if (mo->info->deathsound)
-    S_StartSound (mo, mo->info->deathsound);
+  if (P_MobjInfo(mo)->deathsound)
+    S_StartSound (mo, P_MobjInfo(mo)->deathsound);
   }
-
 
 //
 // P_XYMovement
@@ -149,14 +147,6 @@ static void P_XYMovement (mobj_t* mo)
   //e6y
   fixed_t   oldx,oldy; // phares 9/10/98: reducing bobbing/momentum on ice
 
-#if 0
-  fixed_t   ptryx;
-  fixed_t   ptryy;
-  fixed_t   xmove;
-  fixed_t   ymove;
-  fixed_t   oldx,oldy; // phares 9/10/98: reducing bobbing/momentum on ice
-                       // when up against walls
-#endif
   if (!(mo->momx | mo->momy)) // Any momentum?
     {
     if (mo->flags & MF_SKULLFLY)
@@ -167,7 +157,7 @@ static void P_XYMovement (mobj_t* mo)
       mo->flags &= ~MF_SKULLFLY;
       mo->momz = 0;
 
-      P_SetMobjState (mo, mo->info->spawnstate);
+      P_SetMobjState (mo, P_MobjInfo(mo)->spawnstate);
       }
     return;
     }
@@ -328,9 +318,9 @@ static void P_XYMovement (mobj_t* mo)
       // killough 10/98:
       // Don't affect main player when voodoo dolls stop, except in old demos:
 
-//    if ( player&&(unsigned)((player->mo->state - states)- S_PLAY_RUN1) < 4)
+//    if ( player&&(unsigned)((P_MobjState(player->mo) - states)- S_PLAY_RUN1) < 4)
 //      P_SetMobjState (player->mo, S_PLAY);
-      if (player && (unsigned)(player->mo->state - states - S_PLAY_RUN1) < 4
+      if (player && (unsigned)(P_MobjState(player->mo) - states - S_PLAY_RUN1) < 4
     && (player->mo == mo || compatibility_level >= lxdoom_1_compatibility))
   P_SetMobjState(player->mo, S_PLAY);
 
@@ -414,7 +404,6 @@ static void P_XYMovement (mobj_t* mo)
     }
   }
 
-
 //
 // P_ZMovement
 //
@@ -442,7 +431,7 @@ static void P_ZMovement (mobj_t* mo)
       FixedMul(mo->momz, (fixed_t)(FRACUNIT*.45)) ;
 
     /* Bring it to rest below a certain speed */
-    if (D_abs(mo->momz) <= mo->info->mass*(GRAVITY*4/256))
+    if (D_abs(mo->momz) <= P_MobjInfo(mo)->mass*(GRAVITY*4/256))
       mo->momz = 0;
   }
 
@@ -472,7 +461,7 @@ static void P_ZMovement (mobj_t* mo)
       }
     } else {
       if (!(mo->flags & MF_NOGRAVITY))      /* free-fall under gravity */
-        mo->momz -= mo->info->mass*(GRAVITY/256);
+        mo->momz -= P_MobjInfo(mo)->mass*(GRAVITY/256);
 
       if (mo->flags & MF_FLOAT && sentient(mo)) goto floater;
       return;
@@ -699,7 +688,7 @@ static void P_NightmareRespawn(mobj_t* mobj)
   // spawn the new monster
 
   mthing = &mobj->spawnpoint;
-  if (mobj->info->flags & MF_SPAWNCEILING)
+  if (P_MobjInfo(mobj)->flags & MF_SPAWNCEILING)
     z = ONCEILINGZ;
   else
     z = ONFLOORZ;
@@ -722,7 +711,6 @@ static void P_NightmareRespawn(mobj_t* mobj)
 
   P_RemoveMobj (mobj);
   }
-
 
 //
 // P_MobjThinker
@@ -778,7 +766,7 @@ void P_MobjThinker (mobj_t* mobj)
     // you can cycle through multiple states in a tic
 
     if (!mobj->tics)
-      if (!P_SetMobjState (mobj, mobj->state->nextstate) )
+      if (!P_SetMobjState (mobj, P_MobjState(mobj)->nextstate) )
         return;     // freed itself
     }
   else
@@ -808,7 +796,6 @@ void P_MobjThinker (mobj_t* mobj)
 
   }
 
-
 //
 // P_SpawnMobj
 //
@@ -822,7 +809,6 @@ mobj_t* P_SpawnMobj(fixed_t x,fixed_t y,fixed_t z,mobjtype_t type)
   memset (mobj, 0, sizeof (*mobj));
   info = &mobjinfo[type];
   mobj->type = type;
-  mobj->info = info;
   mobj->x = x;
   mobj->y = y;
   mobj->radius = info->radius;
@@ -848,9 +834,9 @@ mobj_t* P_SpawnMobj(fixed_t x,fixed_t y,fixed_t z,mobjtype_t type)
 
   st = &states[info->spawnstate];
 
-  mobj->state  = st;
+  P_SetMobjStateRef(mobj,st);
   mobj->tics   = st->tics;
-  mobj->sprite = st->sprite;
+  P_SetMobjSprite(mobj,st->sprite);
   mobj->frame  = st->frame;
   mobj->touching_sectorlist = NULL; // NULL head of sector list // phares 3/13/98
 
@@ -881,12 +867,10 @@ mobj_t* P_SpawnMobj(fixed_t x,fixed_t y,fixed_t z,mobjtype_t type)
   return mobj;
   }
 
-
 static mapthing_t itemrespawnque[ITEMQUESIZE];
 static int        itemrespawntime[ITEMQUESIZE];
 int        iquehead;
 int        iquetail;
-
 
 //
 // P_RemoveMobj
@@ -945,7 +929,6 @@ void P_RemoveMobj (mobj_t* mobj)
 
   P_RemoveThinker (&mobj->thinker);
 }
-
 
 /*
  * P_FindDoomedNum
@@ -1352,7 +1335,6 @@ spawnit:
     mobj->flags |= MF_AMBUSH;
   }
 
-
 //
 // GAME SPAWN FUNCTIONS
 //
@@ -1383,7 +1365,6 @@ void P_SpawnPuff(fixed_t x,fixed_t y,fixed_t z)
     P_SetMobjState (th, S_PUFF3);
   }
 
-
 //
 // P_SpawnBlood
 //
@@ -1405,7 +1386,6 @@ void P_SpawnBlood(fixed_t x,fixed_t y,fixed_t z,int damage)
   else if (damage < 9)
     P_SetMobjState (th,S_BLOOD3);
   }
-
 
 //
 // P_CheckMissileSpawn
@@ -1436,7 +1416,6 @@ void P_CheckMissileSpawn (mobj_t* th)
     P_ExplodeMissile (th);
   }
 
-
 //
 // P_SpawnMissile
 //
@@ -1449,8 +1428,8 @@ mobj_t* P_SpawnMissile(mobj_t* source,mobj_t* dest,mobjtype_t type)
 
   th = P_SpawnMobj (source->x,source->y,source->z + 4*8*FRACUNIT,type);
 
-  if (th->info->seesound)
-    S_StartSound (th, th->info->seesound);
+  if (P_MobjInfo(th)->seesound)
+    S_StartSound (th, P_MobjInfo(th)->seesound);
 
   P_SetTarget(&th->target, source);    // where it came from
   an = R_PointToAngle2 (source->x, source->y, dest->x, dest->y);
@@ -1465,11 +1444,11 @@ mobj_t* P_SpawnMissile(mobj_t* source,mobj_t* dest,mobjtype_t type)
 
   th->angle = an;
   an >>= ANGLETOFINESHIFT;
-  th->momx = FixedMul (th->info->speed, finecosine[an]);
-  th->momy = FixedMul (th->info->speed, finesine[an]);
+  th->momx = FixedMul (P_MobjInfo(th)->speed, finecosine[an]);
+  th->momy = FixedMul (P_MobjInfo(th)->speed, finesine[an]);
 
   dist = P_AproxDistance (dest->x - source->x, dest->y - source->y);
-  dist = dist / th->info->speed;
+  dist = dist / P_MobjInfo(th)->speed;
 
   if (dist < 1)
     dist = 1;
@@ -1479,7 +1458,6 @@ mobj_t* P_SpawnMissile(mobj_t* source,mobj_t* dest,mobjtype_t type)
 
   return th;
   }
-
 
 //
 // P_SpawnPlayerMissile
@@ -1519,14 +1497,14 @@ void P_SpawnPlayerMissile(mobj_t* source,mobjtype_t type)
 
   th = P_SpawnMobj (x,y,z, type);
 
-  if (th->info->seesound)
-    S_StartSound (th, th->info->seesound);
+  if (P_MobjInfo(th)->seesound)
+    S_StartSound (th, P_MobjInfo(th)->seesound);
 
   P_SetTarget(&th->target, source);
   th->angle = an;
-  th->momx = FixedMul(th->info->speed,finecosine[an>>ANGLETOFINESHIFT]);
-  th->momy = FixedMul(th->info->speed,finesine[an>>ANGLETOFINESHIFT]);
-  th->momz = FixedMul(th->info->speed,slope);
+  th->momx = FixedMul(P_MobjInfo(th)->speed,finecosine[an>>ANGLETOFINESHIFT]);
+  th->momy = FixedMul(P_MobjInfo(th)->speed,finesine[an>>ANGLETOFINESHIFT]);
+  th->momz = FixedMul(P_MobjInfo(th)->speed,slope);
 
   P_CheckMissileSpawn(th);
   }

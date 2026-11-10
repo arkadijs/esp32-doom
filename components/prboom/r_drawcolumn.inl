@@ -28,7 +28,6 @@
  *
  *-----------------------------------------------------------------------------*/
 
-
 #if (R_DRAWCOLUMN_PIPELINE_BITS == 8)
 #define SCREENTYPE byte
 #define TEMPBUF byte_tempbuf
@@ -208,6 +207,15 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
     if (count <= 0) return;  
   }
 
+  // Flush pending staged draws before writing directly, preserving draw order.
+#ifdef R_DRAWCOLUMN_DIRECT
+  if (temp_x)
+    R_FlushColumns();
+  const int column_stride = drawvars.byte_pitch;
+  dest = drawvars.byte_topleft + dcvars->yl * column_stride + dcvars->x;
+#define COLUMN_STRIDE column_stride
+#else
+#define COLUMN_STRIDE 4
   // Framebuffer destination address.
    // SoM: MAGIC
    {
@@ -244,6 +252,7 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
       }
       temp_x += 1;
    }
+#endif
 
 // do nothing else when drawin fuzz columns
 #if (!(R_DRAWCOLUMN_PIPELINE & RDC_FUZZ))
@@ -288,7 +297,7 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
       while(count--) {
         *dest = GETDESTCOLOR(GETCOL(frac & FIXEDT_128MASK, (frac+FRACUNIT) & FIXEDT_128MASK));
         INCY(y);
-        dest += 4;
+        dest += COLUMN_STRIDE;
         frac += fracstep;
       }
     } else if (dcvars->texheight == 0) {
@@ -296,7 +305,7 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
       while (count--) {
         *dest = GETDESTCOLOR(GETCOL(frac, (frac+FRACUNIT)));
         INCY(y);
-        dest += 4;
+        dest += COLUMN_STRIDE;
         frac += fracstep;
       }
     } else {
@@ -306,11 +315,11 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
         while ((count-=2)>=0) { // texture height is a power of 2 -- killough
           *dest = GETDESTCOLOR(GETCOL(frac & fixedt_heightmask, (frac+FRACUNIT) & fixedt_heightmask));
           INCY(y);
-          dest += 4;
+          dest += COLUMN_STRIDE;
           frac += fracstep;
           *dest = GETDESTCOLOR(GETCOL(frac & fixedt_heightmask, (frac+FRACUNIT) & fixedt_heightmask));
           INCY(y);
-          dest += 4;
+          dest += COLUMN_STRIDE;
           frac += fracstep;
         }
         if (count & 1)
@@ -344,7 +353,7 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
 
           *dest = GETDESTCOLOR(GETCOL(frac, nextfrac));
           INCY(y);
-          dest += 4;
+          dest += COLUMN_STRIDE;
           INCFRAC(frac);
 #if (R_DRAWCOLUMN_PIPELINE & (RDC_BILINEAR|RDC_ROUNDED))
           INCFRAC(nextfrac); 
@@ -373,6 +382,7 @@ static void R_DRAWCOLUMN_FUNCNAME(draw_column_vars_t *dcvars)
 #undef COLTYPE
 #undef TEMPBUF
 #undef SCREENTYPE
+#undef COLUMN_STRIDE
 
 #undef R_DRAWCOLUMN_FUNCNAME
 #undef R_DRAWCOLUMN_PIPELINE

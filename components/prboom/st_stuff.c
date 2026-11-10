@@ -37,6 +37,7 @@
 #include "doomstat.h"
 #include "m_random.h"
 #include "i_video.h"
+#include "i_system.h"
 #include "w_wad.h"
 #include "st_stuff.h"
 #include "st_lib.h"
@@ -407,7 +408,6 @@ static void ST_refreshBackground(void)
     }
 }
 
-
 // Respond to keyboard input events,
 //  intercept cheats.
 boolean ST_Responder(event_t *ev)
@@ -534,7 +534,6 @@ static void ST_updateFaceWidget(void)
                   diffang = plyr->mo->angle - badguyangle;
                   i = diffang <= ANG180;
                 } // confusing, aint it?
-
 
               st_facecount = ST_TURNCOUNT;
               st_faceindex = ST_calcPainOffset();
@@ -838,12 +837,46 @@ static void ST_diffDraw(void)
   ST_drawWidgets(false);
 }
 
+// Only the widget draw history is per-framebuffer; gameplay values and widget
+// source pointers remain shared. This preserves incremental HUD drawing without
+// copying the old frame or repainting the complete status bar every flip.
+static int *const st_history_fields[]={
+  &w_ready.oldnum,&w_frags.oldnum,&w_health.n.oldnum,&w_armor.n.oldnum,
+  &w_ammo[0].oldnum,&w_ammo[1].oldnum,&w_ammo[2].oldnum,&w_ammo[3].oldnum,
+  &w_maxammo[0].oldnum,&w_maxammo[1].oldnum,&w_maxammo[2].oldnum,&w_maxammo[3].oldnum,
+  &w_arms[0].oldinum,&w_arms[1].oldinum,&w_arms[2].oldinum,
+  &w_arms[3].oldinum,&w_arms[4].oldinum,&w_arms[5].oldinum,
+  &w_faces.oldinum,&w_keyboxes[0].oldinum,&w_keyboxes[1].oldinum,&w_keyboxes[2].oldinum
+};
+#define ST_HISTORY_FIELDS (sizeof(st_history_fields)/sizeof(*st_history_fields))
+static struct {
+  const byte *buffer;
+  int valid;
+  int values[ST_HISTORY_FIELDS];
+} st_buffer_history[2];
+
 void ST_Drawer(boolean statusbaron, boolean refresh)
 {
   /* cph - let status bar on be controlled
    * completely by the call from D_Display
    * proff - really do it
    */
+  int history=-1;
+  int swapping=I_FrameBufferSwaps();
+  if(!swapping || !statusbaron || st_firsttime || refresh)
+    st_buffer_history[0].valid=st_buffer_history[1].valid=0;
+  if(swapping && statusbaron) {
+    history=(!st_buffer_history[0].buffer ||
+             st_buffer_history[0].buffer==screens[0].data) ? 0 : 1;
+    if(st_buffer_history[history].buffer!=screens[0].data) {
+      st_buffer_history[history].buffer=screens[0].data;
+      st_buffer_history[history].valid=0;
+    }
+    if(st_buffer_history[history].valid) {
+      for(unsigned i=0;i<ST_HISTORY_FIELDS;++i)
+        *st_history_fields[i]=st_buffer_history[history].values[i];
+    } else refresh=true;
+  }
   st_firsttime = st_firsttime || refresh;
 
   ST_doPaletteStuff();  // Do red-/gold-shifts from damage/items
@@ -854,9 +887,12 @@ void ST_Drawer(boolean statusbaron, boolean refresh)
     else
       ST_diffDraw();      /* Otherwise, update as little as possible */
   }
+  if(history>=0) {
+    for(unsigned i=0;i<ST_HISTORY_FIELDS;++i)
+      st_buffer_history[history].values[i]=*st_history_fields[i];
+    st_buffer_history[history].valid=1;
+  }
 }
-
-
 
 //
 // ST_loadGraphics

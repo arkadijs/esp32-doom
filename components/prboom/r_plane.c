@@ -61,7 +61,6 @@
 #include "lprintf.h"
 #include "esp_attr.h"
 
-
 #define MAXVISPLANES 128    /* must be a power of 2 */
 
 static visplane_t *visplanes[MAXVISPLANES];   // killough
@@ -221,8 +220,9 @@ void R_ClearPlanes(void)
 static visplane_t *new_visplane(unsigned hash)
 {
   visplane_t *check = freetail;
-  if (!check)
+  if (!check) {
     check = calloc(1, sizeof *check);
+  }
   else
     if (!(freetail = freetail->next))
       freehead = &freetail;
@@ -248,7 +248,7 @@ visplane_t *R_DupPlane(const visplane_t *pl, int start, int stop)
       new_pl->yoffs = pl->yoffs;
       new_pl->minx = start;
       new_pl->maxx = stop;
-      memset(new_pl->top, 0xff, sizeof new_pl->top);
+      R_ClearPlaneBounds(new_pl);
       return new_pl;
 }
 //
@@ -259,6 +259,7 @@ visplane_t *R_DupPlane(const visplane_t *pl, int start, int stop)
 visplane_t IRAM_ATTR *R_FindPlane(fixed_t height, int picnum, int lightlevel,
                         fixed_t xoffs, fixed_t yoffs)
 {
+#define RETURN_FOUND_PLANE(p) return (p)
   visplane_t *check;
   unsigned hash;                      // killough
 
@@ -268,13 +269,14 @@ visplane_t IRAM_ATTR *R_FindPlane(fixed_t height, int picnum, int lightlevel,
   // New visplane algorithm uses hash table -- killough
   hash = visplane_hash(picnum,lightlevel,height);
 
-  for (check=visplanes[hash]; check; check=check->next)  // killough
+  for (check=visplanes[hash]; check; check=check->next) { // killough
     if (height == check->height &&
         picnum == check->picnum &&
         lightlevel == check->lightlevel &&
         xoffs == check->xoffs &&      // killough 2/28/98: Add offset checks
         yoffs == check->yoffs)
-      return check;
+      RETURN_FOUND_PLANE(check);
+  }
 
   check = new_visplane(hash);         // killough
 
@@ -286,10 +288,11 @@ visplane_t IRAM_ATTR *R_FindPlane(fixed_t height, int picnum, int lightlevel,
   check->xoffs = xoffs;               // killough 2/28/98: Save offsets
   check->yoffs = yoffs;
 
-  memset (check->top, 0xff, sizeof check->top);
+  R_ClearPlaneBounds(check);
 
-  return check;
+  RETURN_FOUND_PLANE(check);
 }
+#undef RETURN_FOUND_PLANE
 
 //
 // R_CheckPlane
@@ -308,14 +311,16 @@ visplane_t *R_CheckPlane(visplane_t *pl, int start, int stop)
   else
     unionh  = pl->maxx, intrh  = stop;
 
-  for (x=intrl ; x <= intrh && pl->top[x] == 0xffffffffu; x++) // dropoff overflow
+  for (x=intrl ; x <= intrh && R_PlaneTop(pl,x) == 0xffffffffu; x++) // dropoff overflow
     ;
 
+  visplane_t *result;
   if (x > intrh) { /* Can use existing plane; extend range */
     pl->minx = unionl; pl->maxx = unionh;
-    return pl;
+    result=pl;
   } else /* Cannot use existing plane; create a new one */
-    return R_DupPlane(pl,start,stop);
+    result=R_DupPlane(pl,start,stop);
+  return result;
 }
 
 //
@@ -414,7 +419,7 @@ static void IRAM_ATTR R_DoDrawPlane(visplane_t *pl)
 
   // killough 10/98: Use sky scrolling offset, and possibly flip picture
         for (x = pl->minx; (dcvars.x = x) <= pl->maxx; x++)
-          if ((dcvars.yl = pl->top[x]) != -1 && dcvars.yl <= (dcvars.yh = pl->bottom[x])) // dropoff overflow
+          if ((dcvars.yl = R_PlaneTop(pl,x)) != -1 && dcvars.yl <= (dcvars.yh = R_PlaneBottom(pl,x))) // dropoff overflow
             {
               dcvars.source = R_GetTextureColumn(tex_patch, ((an + xtoviewangle[x])^flip) >> ANGLETOSKYSHIFT);
               dcvars.prevsource = R_GetTextureColumn(tex_patch, ((an + xtoviewangle[x-1])^flip) >> ANGLETOSKYSHIFT);
@@ -444,11 +449,11 @@ static void IRAM_ATTR R_DoDrawPlane(visplane_t *pl)
 
       stop = pl->maxx + 1;
       planezlight = zlight[light];
-      pl->top[pl->minx-1] = pl->top[stop] = 0xffffffffu; // dropoff overflow
+      R_SetPlaneEmpty(pl,pl->minx-1); R_SetPlaneEmpty(pl,stop); // dropoff overflow
 
       for (x = pl->minx ; x <= stop ; x++)
-         R_MakeSpans(x,pl->top[x-1],pl->bottom[x-1],
-                     pl->top[x],pl->bottom[x], &dsvars);
+         R_MakeSpans(x,R_PlaneTop(pl,x-1),R_PlaneBottom(pl,x-1),
+                     R_PlaneTop(pl,x),R_PlaneBottom(pl,x), &dsvars);
 
       W_UnlockLumpNum(firstflat + flattranslation[pl->picnum]);
     }

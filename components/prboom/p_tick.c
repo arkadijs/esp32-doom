@@ -32,6 +32,10 @@
  *-----------------------------------------------------------------------------*/
 
 #include "doomstat.h"
+#include "lprintf.h"
+#include "r_main.h"
+#include "m_argv.h"
+#include "esp_timer.h"
 #include "p_user.h"
 #include "p_spec.h"
 #include "p_tick.h"
@@ -287,5 +291,5 @@ void P_Ticker (void)
   P_RespawnSpecials();
   P_MapEnd();
   leveltime++;                       // for par times
-}
 
+}

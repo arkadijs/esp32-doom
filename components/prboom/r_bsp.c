@@ -292,7 +292,30 @@ sector_t *R_FakeFlat(sector_t *sec, sector_t *tempsec,
 // and adds any visible pieces to the line list.
 //
 #include "rom/ets_sys.h"
-static void R_AddLine (seg_t *line)
+#include <assert.h>
+#define VERTEX_ANGLE_SLOTS 512
+typedef struct {
+  const vertex_t *vertex;
+  angle_t angle;
+} vertex_angle_entry_t;
+static vertex_angle_entry_t *view_vertex_angles;
+
+static inline angle_t R_VertexAngle(const vertex_t *vertex)
+{
+  if(view_vertex_angles) {
+    unsigned slot=((uintptr_t)vertex>>3)&(VERTEX_ANGLE_SLOTS-1);
+    vertex_angle_entry_t *entry=&view_vertex_angles[slot];
+    if(entry->vertex==vertex) {
+      return entry->angle;
+    }
+    entry->angle=R_PointToAngle(vertex->x,vertex->y);
+    entry->vertex=vertex;
+    return entry->angle;
+  }
+  return R_PointToAngle(vertex->x,vertex->y);
+}
+
+static void R_AddLine(seg_t *line)
 {
   int      x1;
   int      x2;
@@ -304,8 +327,8 @@ static void R_AddLine (seg_t *line)
 
   curline = line;
 
-  angle1 = R_PointToAngle (line->v1->x, line->v1->y);
-  angle2 = R_PointToAngle (line->v2->x, line->v2->y);
+  angle1 = R_VertexAngle(line->v1);
+  angle2 = R_VertexAngle(line->v2);
 
   // Clip to view edges.
   span = angle1 - angle2;
@@ -358,8 +381,6 @@ static void R_AddLine (seg_t *line)
 
 //	ets_printf("a1 %d x1 %d a2 %d x2 %d\n", angle1, x1, angle2, x2);
 
-
-
 #ifdef GL_DOOM
   // proff 11/99: we have to add these segs to avoid gaps in OpenGL
   if (x1 >= x2)       // killough 1/31/98 -- change == to >= for robustness
@@ -397,15 +418,18 @@ static void R_AddLine (seg_t *line)
     backsector = R_FakeFlat(backsector, &tempsec, NULL, NULL, true);
 
   /* cph - roll up linedef properties in flags */
-  if ((linedef = curline->linedef)->r_validcount != gametic)
+  if ((linedef = curline->linedef)->r_validcount != gametic) {
     R_RecalcLineFlags();
+  }
 
   if (linedef->r_flags & RF_IGNORE)
   {
     return;
   }
   else
+  {
     R_ClipWallSegment (x1, x2, linedef->r_flags & RF_CLOSED);
+  }
 }
 
 //
@@ -669,4 +693,18 @@ void R_RenderBSPNode(int bspnum)
       bspnum = bsp->children[side^1];
     }
   R_Subsector(bspnum == -1 ? 0 : bspnum & ~NF_SUBSECTOR);
+}
+
+void R_RenderBSPView(int bspnum)
+{
+  // Geometry and camera coordinates are stable during this synchronous view.
+  // The BSP phase ends before the masked phase borrows its own task scratch.
+  vertex_angle_entry_t entries[VERTEX_ANGLE_SLOTS]={{0}};
+  assert(!view_vertex_angles);
+  view_vertex_angles=entries;
+  wall_distance_entry_t distances[WALL_DISTANCE_SLOTS]={{0}};
+  R_SetWallDistanceCache(distances);
+  R_RenderBSPNode(bspnum);
+  R_SetWallDistanceCache(NULL);
+  view_vertex_angles=NULL;
 }

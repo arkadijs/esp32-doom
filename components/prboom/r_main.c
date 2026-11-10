@@ -33,7 +33,6 @@
  *
  *-----------------------------------------------------------------------------*/
 
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -41,12 +40,15 @@
 #include "SDL.h"
 #endif
 #include "doomstat.h"
+#include "m_argv.h"
+#include "esp_timer.h"
 #include "d_net.h"
 #include "w_wad.h"
 #include "r_main.h"
 #include "r_things.h"
 #include "r_plane.h"
 #include "r_bsp.h"
+#include "r_segs.h"
 #include "r_draw.h"
 #include "m_bbox.h"
 #include "r_sky.h"
@@ -577,6 +579,7 @@ static void R_ShowStats(void)
 //
 void R_RenderPlayerView (player_t* player)
 {
+  R_BeginFlashTextureFrame();
   R_SetupFrame (player);
 
   // Clear buffers.
@@ -609,7 +612,7 @@ void R_RenderPlayerView (player_t* player)
 #endif
 
   // The head node is the last node output.
-  R_RenderBSPNode (numnodes-1);
+  R_RenderBSPView(numnodes-1);
   R_ResetColumnBuffer();
 
   // Check for new console commands.
@@ -647,4 +650,6 @@ void R_RenderPlayerView (player_t* player)
   if (rendering_stats) R_ShowStats();
 
   R_RestoreInterpolations();
+  R_EndFlashTextureFrame();
+
 }
