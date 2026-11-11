@@ -193,6 +193,13 @@ def pack(args):
     overrides = dict(read(args.pwad))
     support = [(k, overrides.get(k, v) if k in ('ANIMATED', 'SWITCHES', 'M_WEAP') else v)
                for k, v in support]
+    # Space in the 448 KiB support partition is needed for demos. These lumps
+    # are never read by this firmware: the trig/gamma tables are compiled in
+    # (prboom-wad-tables), and the Chex/Nerve/BFG DeHackEd patches and OpenGL
+    # lumps belong to modes it does not support.
+    unused = {'SINETABL', 'TANGTABL', 'TANTOANG', 'GAMMATBL', 'CHEXDEH', 'BFGBEX',
+              'NERVEBEX', 'GLSHADOW', 'GLFP', 'GLVP'}
+    support = [(k, v) for k, v in support if k not in unused]
     support_data = bytearray(12)
     support_dir = []
     for k, v in support:

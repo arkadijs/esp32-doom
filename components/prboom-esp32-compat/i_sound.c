@@ -307,7 +307,26 @@ void I_UnRegisterSong(int handle)
     xSemaphoreGive(audio_mutex);
 }
 
+/* Music parsing uses libc malloc, which fails once the zone cache has taken
+ * all free PSRAM. */
+extern void Z_PurgeCache(void);
+static int I_RegisterSongOnce(const void *data, size_t len);
+
 int I_RegisterSong(const void *data, size_t len)
+{
+    int handle = I_RegisterSongOnce(data, len);
+    if (handle == 0 && audio_initialized && data != NULL && len != 0)
+    {
+        Z_PurgeCache();
+        handle = I_RegisterSongOnce(data, len);
+    }
+    if (handle == 0 && audio_initialized && data != NULL && len != 0)
+        lprintf(LO_WARN, "I_RegisterSong: failed to register song (%u bytes)\n",
+                (unsigned) len);
+    return handle;
+}
+
+static int I_RegisterSongOnce(const void *data, size_t len)
 {
     const void *handle = NULL;
     MEMFILE *input;
@@ -335,9 +354,6 @@ int I_RegisterSong(const void *data, size_t len)
         mem_fclose(input);
         mem_fclose(output);
     }
-    if (handle == NULL)
-        lprintf(LO_WARN, "I_RegisterSong: failed to register song (%u bytes)\n",
-                (unsigned) len);
     return (int) handle;
 }
 

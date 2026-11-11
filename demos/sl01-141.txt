@@ -1,0 +1,14 @@
+Pwad: sunlust   
+Map:      1
+Skill:     4
+Category:  UV-Max
+Exe:       GLBoom+ v2.5.1.3
+Time:      1:41
+
+-complevel 9
+
+Author:	   j4rio
+
+
+Woo, first demo with a new laptop.
+Welcome to the new era.

@@ -24,6 +24,12 @@ python3 "$script_dir/pack_sunlust.py" --iwad "$iwad" --pwad "$pwad" \
     --support "$support" --maps "$maps" --output "$output/source/doom2.wad"
 python3 "$script_dir/test_sunlust_pack.py" "$output/source/doom2.wad" "$pwad" --iwad "$iwad"
 python3 "$script_dir/build_flash_textures.py" "$output/source/doom2.wad" "$output/doom2.wad"
-cp "$output/source/prboom-plus.wad" "$output/prboom-plus.wad"
 python3 "$script_dir/test_flash_textures.py" "$output/source/doom2.wad" \
     "$output/doom2.wad" "$output/host/composites.raw"
+# Title-loop demos (demos/*.lmp -> DEMO1..8) go into the support WAD only.
+demos_dir="$script_dir/../demos"
+if compgen -G "$demos_dir/*.lmp" >/dev/null; then
+    python3 "$script_dir/add_demos.py" "$output/source/prboom-plus.wad" "$output/prboom-plus.wad" "$demos_dir"
+else
+    cp "$output/source/prboom-plus.wad" "$output/prboom-plus.wad"
+fi

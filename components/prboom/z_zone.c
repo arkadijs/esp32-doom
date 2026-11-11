@@ -50,6 +50,8 @@
 #include <stdio.h>
 
 #include "z_zone.h"
+#include "esp_heap_caps.h"
+#include "lprintf.h"
 #include "doomstat.h"
 #include "m_argv.h"
 #include "v_video.h"
@@ -109,6 +111,39 @@ typedef struct memblock {
 static const size_t HEADER_SIZE = (sizeof(memblock_t)+CHUNK_SIZE-1) & ~(CHUNK_SIZE-1);
 
 static memblock_t *blockbytag[PU_MAX];
+
+/* Level arena.
+ * Level-lifetime blocks (PU_LEVEL/PU_LEVSPEC: segs, nodes, sectors, mobjs...)
+ * come to ~3.4 MB on the biggest Sunlust maps and are all released together at
+ * every level change. When they shared the PSRAM heap with long-lived blocks
+ * that grew on demand, those survivors ended up scattered through the heap and
+ * a later level could fail to find one contiguous ~1 MB block even with
+ * megabytes free. Reserve the arena once at startup (clean heap) as its own
+ * multi_heap; level allocations use it and fall back to the main heap if it is
+ * full. Not thread safe, like the rest of the zone code (game task only). */
+#define LEVEL_ARENA_SIZE (3840*1024)
+static multi_heap_handle_t level_heap;
+static char *level_base;
+
+static void *zone_alloc(size_t n, int tag)
+{
+  if (level_heap && (tag == PU_LEVEL || tag == PU_LEVSPEC))
+  {
+    void *p = multi_heap_malloc(level_heap, n);
+    if (p)
+      return p;
+  }
+  return (malloc)(n);
+}
+
+static void zone_release(void *p)
+{
+  if (level_heap && (char *) p >= level_base &&
+      (char *) p < level_base + LEVEL_ARENA_SIZE)
+    multi_heap_free(level_heap, p);
+  else
+    (free)(p);
+}
 
 // 0 means unlimited, any other value is a hard limit
 //static int memory_size = 8192*1024;
@@ -261,6 +296,13 @@ void Z_DumpHistory(char *buf)
 
 #endif
 
+/* Release every purgable (PU_CACHE) block. For callers that allocate with plain
+ * malloc (e.g. the music loader) and so cannot trigger the purge Z_Malloc does. */
+void Z_PurgeCache(void)
+{
+  Z_FreeTags(PU_CACHE, PU_CACHE);
+}
+
 void Z_Close(void)
 {
 #if 0
@@ -318,6 +360,11 @@ void Z_Init(void)
   atexit(Z_DumpMemory);
 #endif
 #endif
+  level_base = heap_caps_malloc(LEVEL_ARENA_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (level_base)
+    level_heap = multi_heap_register(level_base, LEVEL_ARENA_SIZE);
+  lprintf(LO_INFO, "Z_Init: level arena %s (%u KB)\n",
+          level_heap ? "reserved" : "UNAVAILABLE, using shared heap", LEVEL_ARENA_SIZE/1024);
 }
 
 /* Z_Malloc
@@ -390,7 +437,7 @@ void *(Z_Malloc)(size_t size, int tag, void **user
 #ifdef HAVE_LIBDMALLOC
   while (!(block = dmalloc_malloc(file,line,size + HEADER_SIZE,DMALLOC_FUNC_MALLOC,0,0))) {
 #else
-  while (!(block = (malloc)(size + HEADER_SIZE))) {
+  while (!(block = zone_alloc(size + HEADER_SIZE, tag))) {
 #endif
     if (!blockbytag[PU_CACHE])
       I_Error ("Z_Malloc: Failure trying to allocate %lu bytes"
@@ -509,7 +556,7 @@ void (Z_Free)(void *p
 #ifdef HAVE_LIBDMALLOC
   dmalloc_free(file,line,block,DMALLOC_FUNC_MALLOC);
 #else
-  (free)(block);
+  zone_release(block);
 #endif
 #ifdef INSTRUMENTED
       Z_DrawStats();           // print memory allocation stats

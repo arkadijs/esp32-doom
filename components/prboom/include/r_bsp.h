@@ -56,6 +56,7 @@ extern drawseg_t *ds_p;
 
 void R_ClearClipSegs(void);
 void R_ClearDrawSegs(void);
+void R_InitDrawSegs(void);
 void R_RenderBSPNode(int bspnum);
 void R_RenderBSPView(int bspnum);
 

@@ -439,6 +439,7 @@ void R_Init (void)
   // CPhipps - R_DrawColumn isn't constant anymore, so must
   //  initialise in code
   // current column draw function
+  R_InitDrawSegs();
   lprintf(LO_INFO, "\nR_LoadTrigTables: ");
   R_LoadTrigTables();
   lprintf(LO_INFO, "\nR_InitData: ");

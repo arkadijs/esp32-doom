@@ -1,0 +1,31 @@
+Pwad: sunlust   
+Map:      2
+Skill:     4
+Category:  UV-Max
+Exe:       GLBoom+ v2.5.1.3
+Time:      2:59
+
+-complevel 9
+
+Author:	   j4rio
+
+This seemed like more ideal map to max but things got out 
+of hand quickly. Below 3 looked like a reasonable barrier 
+but, well, guess what... it absolutely wasn't. I tried this 
+soon after map 1 but couldn't get a single exit in around 4 
+hours. Then I got pissed off, ragequit, hit the bag, passed 
+out for 30 hours but then woke up fresh anew and got 2 exits 
+in 2 hours. I thought the 3:02 looked more competent, even 
+though it's a 'lil slower. Good time depends on a lot of 
+factors, namely how fast/slow PE gets to tele in (slow 
+teleporter!!!), how many stragglers get lost (it's 
+unfortunately very likely in this map), and just luck all 
+over place. A chainer necessary to fight with only sg 
+should be a crime against humanity, it's the worst case of
+RNG abuse present in doom - 1-hit kill being a roll of dice 
+with around 33% chance of success. Also, another oddity - 
+mancubus teleported out of the usual teleporting destination 
+in my 2:59 (not in 3:02), it happenned to me only one time 
+before so I have already been keeping in mind to check its 
+second teleporting destination in case he isn't in its usual 
+spot.

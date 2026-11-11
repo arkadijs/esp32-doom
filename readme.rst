@@ -183,6 +183,15 @@ Exact sizes depend on the input WAD versions. MAP06 and later are absent;
 finishing the subset returns to the title. Missing original-game demos are
 skipped, so the title/credit loop remains usable.
 
+Demo recordings placed in ``demos/*.lmp`` (up to eight, sorted by file name)
+are stored as ``DEMO1``..``DEMO8`` in the support PWAD by ``prepare_sunlust.sh``
+and play in the title loop. To add demos without regenerating the IWAD::
+
+    python3 tools/add_demos.py build-assets/sunlust/prboom-plus.wad prboom-plus.wad demos
+    python -m esptool --chip esp32s3 write-flash 0xF80000 prboom-plus.wad
+
+Demos must match the packed maps (currently Sunlust MAP01..MAP05).
+
 Flash layout
 ------------
 

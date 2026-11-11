@@ -1,0 +1,23 @@
+Pwad: sunlust   
+Map:      3
+Skill:     4
+Category:  UV-Max
+Exe:       GLBoom+ v2.5.1.3
+Time:      3:35
+
+-complevel 9
+
+Author:	   j4rio
+
+
+Interconnected nonlinear maps are hell for routing,
+but especially weapon usage. There's a number of ways
+to pick from, I opted for a route that minimizes usage
+of slow lifts - only once shortly after start. Vile 
+is a huge obstacle in the route, the way I handle
+it is basically stupid head-on rush that kills most 
+attempts, but leaving it behind means revival of 
+victims of infighting. There's also a berserk AGAIN, 
+but I found only limited usage for it fortunately. 2nd 
+exit. I thought below 4 would be sufficient but a really 
+crappy 1st exit has proved otherwise.

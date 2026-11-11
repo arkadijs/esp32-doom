@@ -1,0 +1,15 @@
+Pwad: slutlust   
+Map:      4
+Skill:     4
+Category:  UV-Max
+Exe:       GLBoom+ v2.5.1.3
+Time:      2:42
+
+-complevel 9
+
+Author:	   j4rio
+
+Okay, this is honestly one of the worst maps for 
+maxkills I've ever played, not even exaggerating. 
+100% luck, 0% skill and fun in negative values.  
+Botched the ending a bit.

@@ -509,15 +509,38 @@ static struct
     {
       {NULL},
       {NULL},
-      {NULL},
+      {G_DeferedPlayDemo, "demo4"},
       {D_SetPageName, "CREDIT"},
     },
 
     {
       {NULL},
       {NULL},
-      {NULL},
+      {G_DeferedPlayDemo, "demo5"},
       {G_DeferedPlayDemo, "demo4"},
+    },
+
+    /* Doom II: extra demos stored in the support WAD (DEMO4..DEMO8).
+     * Absent lumps are skipped by D_DoAdvanceDemo. */
+    {
+      {NULL},
+      {NULL},
+      {G_DeferedPlayDemo, "demo6"},
+      {NULL},
+    },
+
+    {
+      {NULL},
+      {NULL},
+      {G_DeferedPlayDemo, "demo7"},
+      {NULL},
+    },
+
+    {
+      {NULL},
+      {NULL},
+      {G_DeferedPlayDemo, "demo8"},
+      {NULL},
     },
 
     {

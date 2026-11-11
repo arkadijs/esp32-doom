@@ -56,6 +56,20 @@ drawseg_t *drawsegs;
 unsigned  maxdrawsegs;
 // drawseg_t drawsegs[MAXDRAWSEGS];       // old code -- killough
 
+// Sunlust frames can need over 2048 drawsegs (MAP05 reaches 4096). Growing the
+// array by doubling during play needs the old and new blocks at once and, being
+// done mid-heap after earlier levels, can fail on a fragmented heap. Allocate
+// the observed peak once at startup while the heap is clean; the doubling code
+// in R_StoreWallRange/R_AddLine remains as a fallback.
+#define INITIAL_DRAWSEGS 4096
+
+void R_InitDrawSegs(void)
+{
+  drawsegs = realloc(drawsegs, INITIAL_DRAWSEGS*sizeof(*drawsegs));
+  maxdrawsegs = INITIAL_DRAWSEGS;
+  ds_p = drawsegs;
+}
+
 //
 // R_ClearDrawSegs
 //
@@ -455,6 +469,14 @@ static const int checkcoord[12][4] = // killough -- static const
 };
 
 // killough 1/28/98: static // CPhipps - const parameter, reformatted
+/* STACK: R_Subsector must stay noinline. R_RenderBSPNode recurses once per BSP
+ * level, so its frame is multiplied by the tree depth (Sunlust MAP04: 91
+ * levels, MAP05: 116). With R_Subsector inlined its frame was 256 bytes (~23 KB
+ * of the 22,480-byte game task stack, overflowing near the MAP04 demo exit);
+ * out of line it is 48 bytes. Measured on Xtensa -O2: R_Subsector inlined: 256,
+ * R_Subsector noinline: 48 (32 if R_CheckBBox is noinline too). Re-check with
+ * objdump -d --disassemble=R_RenderBSPNode ("entry a1, N") after compiler or
+ * optimization changes. */
 static boolean R_CheckBBox(const fixed_t *bspcoord)
 {
   angle_t angle1, angle2;
@@ -522,7 +544,8 @@ static boolean R_CheckBBox(const fixed_t *bspcoord)
 //
 // killough 1/31/98 -- made static, polished
 
-static void R_Subsector(int num)
+/* noinline: see STACK note above R_CheckBBox */
+static __attribute__((noinline)) void R_Subsector(int num)
 {
   int         count;
   seg_t       *line;

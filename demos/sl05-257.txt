@@ -1,0 +1,31 @@
+Pwad: sunlust   
+Map:      5
+Skill:     4
+Category:  UV-Max
+Exe:       GLBoom+ v2.5.1.3
+Time:      2:57
+
+-complevel 9
+
+Author:	   j4rio
+
+Another map with a below-3-minute barrier goal that I 
+eventually reached in 1st exit. Route is basically a 
+game of connect the dots again, but there's a pacifist 
+element to it. When to make noise and wake everything 
+up is actually not that simple to answer, the most 
+ideal would be doing so immediately so stuff teleports 
+in and infights, but this also wakes up arachnotrons 
+which almost certainly block the intended path. Vile 
+released from the exit is free to revive infighting 
+victims anyway so I settled with making noise right 
+after passing those spiders. Map is bad for max because 
+getting rl quickly is all about luck, the jump for plasma 
+gun requires quite a lot of precision, the platform with 
+rl fails to lover around 2/3 of time due to extremely 
+likely linedef skip, berserk secret can fail to register 
+very easily, the only armor is unreachable until the very 
+end if you disregard those few armor bonuses and I also 
+noticed one trap can be cheesed with sr50 which doesn't
+always work. Not sure how fast can this go, but I'm not 
+about to find out. Maybe if somebody lowers the time.

@@ -109,8 +109,23 @@ fixed_t yslope[MAX_SCREENHEIGHT], distscale[MAX_SCREENWIDTH];
 // R_InitPlanes
 // Only at game startup.
 //
+/* Visplanes are only ever recycled, never freed. Allocating them one at a time
+ * on demand (up to ~450 in Sunlust MAP05 scenes, 1344 bytes each) scattered
+ * ~600 KB of permanent blocks across the whole heap and fragmented it until a
+ * later level could not find a contiguous ~1 MB for its segs. Take the usual
+ * working set as one contiguous block at startup, while the heap is clean; the
+ * on-demand calloc in new_visplane() stays as a fallback for bigger scenes. */
+#define VISPLANE_POOL_SIZE 512
+
 void R_InitPlanes (void)
 {
+  visplane_t *pool = calloc(VISPLANE_POOL_SIZE, sizeof *pool);
+  int i;
+  for (i = 0; i < VISPLANE_POOL_SIZE-1; i++)
+    pool[i].next = &pool[i+1];
+  pool[VISPLANE_POOL_SIZE-1].next = NULL;
+  freetail = pool;
+  freehead = &pool[VISPLANE_POOL_SIZE-1].next;
 }
 
 //
